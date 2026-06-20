@@ -23,6 +23,8 @@ import {Icon} from '../components/Icon';
 import {ExerciseIcon, PATTERN_LABEL} from '../components/ExerciseIcon';
 import {Routine} from '../routines';
 import {useWorkouts} from '../WorkoutContext';
+import {useSettings} from '../SettingsContext';
+import {fromKg, toKg, unitLabel, stepFor, roundToStep} from '../units';
 import {
   CompletedSession,
   LoggedSet,
@@ -31,8 +33,6 @@ import {
   repsLow,
   lastLoadForExercise,
 } from '../workout';
-
-const REST_TARGET = 90;
 
 export function Session({
   routine,
@@ -46,6 +46,9 @@ export function Session({
   const {scheme, t} = useTheme();
   const styles = SS[scheme];
   const {sessions} = useWorkouts();
+  const {settings} = useSettings();
+  const units = settings.units;
+  const restTarget = settings.restDefault;
   const accent = routine.kind === 'upper' ? t.cyan : t.mint;
 
   const exercises = useMemo(() => flattenExercises(routine), [routine]);
@@ -63,9 +66,10 @@ export function Session({
   const [rpe, setRpe] = useState(8);
 
   // Al cambiar de ejercicio: precargar valores objetivo (y última carga si existe).
+  // Internamente las cargas se guardan en kg; aquí se muestran en la unidad elegida.
   useEffect(() => {
-    const prev = lastLoadForExercise(sessions, ex.name);
-    setLoad(prev ?? 20);
+    const prevKg = lastLoadForExercise(sessions, ex.name);
+    setLoad(roundToStep(fromKg(prevKg ?? 20, units), units));
     setReps(repsLow(ex.reps));
     setRpe(ex.rpe ? Number(ex.rpe) : 8);
     setResting(false);
@@ -74,7 +78,7 @@ export function Session({
 
   // Timer de descanso.
   const [resting, setResting] = useState(false);
-  const [restLeft, setRestLeft] = useState(REST_TARGET);
+  const [restLeft, setRestLeft] = useState(restTarget);
   useEffect(() => {
     if (!resting) return;
     const id = setInterval(() => setRestLeft(s => Math.max(0, s - 1)), 1000);
@@ -91,13 +95,14 @@ export function Session({
   }, []);
 
   function logSet() {
+    // logged[] guarda en unidad de display; se convierte a kg al terminar.
     setLogged(all => {
       const copy = all.map(a => a.slice());
       copy[exIdx].push({reps, load, rpe});
       return copy;
     });
     setResting(true);
-    setRestLeft(REST_TARGET);
+    setRestLeft(restTarget);
   }
 
   function finish() {
@@ -106,7 +111,7 @@ export function Session({
         name: e.name,
         pattern: e.pattern,
         target: `${e.sets} × ${e.reps}`,
-        sets: logged[i],
+        sets: logged[i].map(st => ({...st, load: toKg(st.load, units)})),
       }))
       .filter(e => e.sets.length > 0);
     if (entries.length === 0) {
@@ -227,8 +232,8 @@ export function Session({
             </View>
 
             <View style={{marginTop: 18}}>
-              <Field label="CARGA · KG">
-                <Stepper value={load} onChange={setLoad} step={2.5} decimals={1} />
+              <Field label={`CARGA · ${unitLabel(units)}`}>
+                <Stepper value={load} onChange={setLoad} step={stepFor(units)} decimals={1} />
               </Field>
             </View>
 
@@ -256,13 +261,13 @@ export function Session({
         {resting ? (
           <Pad y={16}>
             <Card style={{padding: 18, borderColor: accent}}>
-              <Eyebrow color={accent}>DESCANSO · OBJETIVO 90 SEG</Eyebrow>
+              <Eyebrow color={accent}>DESCANSO · OBJETIVO {restTarget} SEG</Eyebrow>
               <View style={styles.restRow}>
                 <Num size={48} color={accent}>
                   {mmss(restLeft)}
                 </Num>
                 <View style={{flex: 1}}>
-                  <Bar value={(restLeft / REST_TARGET) * 100} color={accent} height={2} />
+                  <Bar value={(restLeft / restTarget) * 100} color={accent} height={2} />
                   <Meta color={t.fg2} style={{marginTop: 8}}>
                     RESPIRA · 4 INHALA · 6 EXHALA
                   </Meta>
@@ -281,11 +286,11 @@ export function Session({
           <Card style={{padding: 0}}>
             <SetHeaderRow />
             {logged[exIdx].map((s, i) => (
-              <SetRow key={i} n={i + 1} reps={s.reps} load={s.load} rpe={s.rpe} done accent={accent} />
+              <SetRow key={i} n={i + 1} reps={s.reps} load={s.load} rpe={s.rpe} unit={unitLabel(units)} done accent={accent} />
             ))}
-            <SetRow n={doneHere + 1} reps={reps} load={load} rpe={rpe} active accent={accent} />
+            <SetRow n={doneHere + 1} reps={reps} load={load} rpe={rpe} unit={unitLabel(units)} active accent={accent} />
             {Array.from({length: remaining}).map((_, i) => (
-              <SetRow key={`empty-${i}`} n={doneHere + 2 + i} planned accent={accent} />
+              <SetRow key={`empty-${i}`} n={doneHere + 2 + i} unit={unitLabel(units)} planned accent={accent} />
             ))}
           </Card>
         </Pad>
@@ -363,6 +368,7 @@ function SetRow({
   reps,
   load,
   rpe,
+  unit,
   done,
   active,
   planned,
@@ -372,6 +378,7 @@ function SetRow({
   reps?: number;
   load?: number;
   rpe?: number;
+  unit: string;
   done?: boolean;
   active?: boolean;
   planned?: boolean;
@@ -395,7 +402,7 @@ function SetRow({
         {planned ? '—' : reps}
       </Text>
       <Text style={[styles.td, styles.tCol, {color: txt, fontWeight: fw}]} allowFontScaling={false}>
-        {planned ? '—' : `${load} kg`}
+        {planned ? '—' : `${load} ${unit.toLowerCase()}`}
       </Text>
       <Text style={[styles.td, styles.tCol, {color: txt, fontWeight: fw}]} allowFontScaling={false}>
         {planned ? '—' : rpe}

@@ -20,6 +20,8 @@ import {DashHeader, FeedSection, MiniBars} from '../components/Dashboard';
 import {ExerciseIcon} from '../components/ExerciseIcon';
 import {useRole} from '../RoleContext';
 import {useWorkouts} from '../WorkoutContext';
+import {useSettings} from '../SettingsContext';
+import {fromKg, unitLabel} from '../units';
 import {
   e1rmSeries,
   bestPRs,
@@ -88,6 +90,9 @@ function AthleteStats() {
   const styles = SS[scheme];
   const {width} = useWindowDimensions();
   const {sessions} = useWorkouts();
+  const {settings} = useSettings();
+  const units = settings.units;
+  const u = unitLabel(units);
 
   // Ejercicios disponibles (por frecuencia) y el seleccionado para el gráfico.
   const freq = exercisesByFrequency(sessions);
@@ -188,8 +193,8 @@ function AthleteStats() {
             </Meta>
           </View>
           <View style={styles.chartValue}>
-            <Num size={44}>{latest}</Num>
-            <Meta>KG</Meta>
+            <Num size={44}>{Math.round(fromKg(latest, units))}</Num>
+            <Meta>{u}</Meta>
           </View>
           {pts.length > 1 ? (
             <Svg width={chartW} height={140} viewBox={`0 0 ${W} ${H}`} style={{marginTop: 10}}>
@@ -254,9 +259,9 @@ function AthleteStats() {
                 </Meta>
               </View>
               <View style={{alignItems: 'flex-end'}}>
-                <Num size={18}>{pr.value}</Num>
+                <Num size={18}>{Math.round(fromKg(pr.value, units))}</Num>
                 <Meta color={t.mint} style={{marginTop: 4}}>
-                  KG
+                  {u}
                 </Meta>
               </View>
             </View>

@@ -21,4 +21,5 @@ export async function saveJSON<T>(key: string, value: T): Promise<void> {
 export const KEYS = {
   sessions: 'ht.sessions.v1',
   routines: 'ht.routines.v1',
+  settings: 'ht.settings.v1',
 } as const;

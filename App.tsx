@@ -10,6 +10,7 @@ import {
   SafeAreaView,
 } from 'react-native-safe-area-context';
 import {Palette, DARK, LIGHT, R} from './src/theme';
+import {SettingsProvider} from './src/SettingsContext';
 import {ThemeProvider, useTheme} from './src/ThemeContext';
 import {Brand} from './src/components/Brand';
 import {Icon} from './src/components/Icon';
@@ -99,15 +100,17 @@ function Shell() {
 function App() {
   return (
     <SafeAreaProvider>
-      <ThemeProvider>
-        <RoleProvider>
-          <RoutinesProvider>
-            <WorkoutProvider>
-              <Shell />
-            </WorkoutProvider>
-          </RoutinesProvider>
-        </RoleProvider>
-      </ThemeProvider>
+      <SettingsProvider>
+        <ThemeProvider>
+          <RoleProvider>
+            <RoutinesProvider>
+              <WorkoutProvider>
+                <Shell />
+              </WorkoutProvider>
+            </RoutinesProvider>
+          </RoleProvider>
+        </ThemeProvider>
+      </SettingsProvider>
     </SafeAreaProvider>
   );
 }
