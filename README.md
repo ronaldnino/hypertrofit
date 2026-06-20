@@ -34,21 +34,9 @@ Hypertrofit es una app de fitness construida a partir del *Hypertrofit Design Sy
 ## 🎬 Demo
 
 <div align="center">
-<sub><em>GIF de navegación · próximamente</em></sub>
+  <img src="docs/screenshots/nav.gif" width="260" alt="Navegación por las pantallas de Hypertrofit"/>
+  <br/><sub><em>Demo animada a partir de los mockups · reemplazable por un screen-recording real</em></sub>
 </div>
-
-<!--
-  Cuando exista docs/screenshots/nav.gif, descomenta este bloque y borra el aviso de arriba:
-
-  <div align="center">
-    <img src="docs/screenshots/nav.gif" width="260" alt="Navegación por las pantallas de Hypertrofit"/>
-  </div>
-
-  Para generarlo:
-    xcrun simctl io booted recordVideo docs/screenshots/nav.mov
-    ffmpeg -i docs/screenshots/nav.mov -vf "fps=12,scale=300:-1:flags=lanczos" docs/screenshots/nav.gif
-    rm docs/screenshots/nav.mov
--->
 
 ## ✨ Características
 
