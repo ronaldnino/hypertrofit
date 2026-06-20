@@ -10,9 +10,10 @@ import {
   SafeAreaView,
 } from 'react-native-safe-area-context';
 import {Palette, DARK, LIGHT, R} from './src/theme';
-import {SettingsProvider} from './src/SettingsContext';
+import {SettingsProvider, useSettings} from './src/SettingsContext';
 import {ThemeProvider, useTheme} from './src/ThemeContext';
 import {Brand} from './src/components/Brand';
+import {Splash} from './src/components/Splash';
 import {Icon} from './src/components/Icon';
 import {DevRoleSwitcher} from './src/components/DevRoleSwitcher';
 import {TabBar, TabKey} from './src/components/TabBar';
@@ -97,6 +98,18 @@ function Shell() {
   );
 }
 
+// Muestra la pantalla de carga con la marca hasta que los datos persistidos
+// (ajustes, rutinas, entrenamientos) estén listos.
+function Gate() {
+  const settingsReady = useSettings().ready;
+  const routinesReady = useRoutines().ready;
+  const workoutsReady = useWorkouts().ready;
+  if (!settingsReady || !routinesReady || !workoutsReady) {
+    return <Splash />;
+  }
+  return <Shell />;
+}
+
 function App() {
   return (
     <SafeAreaProvider>
@@ -105,7 +118,7 @@ function App() {
           <RoleProvider>
             <RoutinesProvider>
               <WorkoutProvider>
-                <Shell />
+                <Gate />
               </WorkoutProvider>
             </RoutinesProvider>
           </RoleProvider>
