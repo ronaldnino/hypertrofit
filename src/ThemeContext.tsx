@@ -1,8 +1,12 @@
 // Hypertrofit · esquema de color activo (oscuro / claro).
-// Arranca siguiendo el sistema y se puede alternar manualmente desde la barra de marca.
-import React, {createContext, useContext, useState} from 'react';
+// El modo lo decide SettingsContext (`system` | `light` | `dark`, persistido):
+//   - `system` sigue el esquema del dispositivo
+//   - `light` / `dark` lo fuerzan
+// El toggle de la barra de marca alterna a un modo explícito opuesto al actual.
+import React, {createContext, useContext} from 'react';
 import {useColorScheme} from 'react-native';
 import {Palette, Scheme, PALETTES, DARK} from './theme';
+import {useSettings} from './SettingsContext';
 
 type ThemeCtx = {
   scheme: Scheme;
@@ -20,9 +24,16 @@ const Ctx = createContext<ThemeCtx>({
 
 export function ThemeProvider({children}: {children: React.ReactNode}) {
   const system = useColorScheme();
-  const [scheme, setScheme] = useState<Scheme>(system === 'light' ? 'light' : 'dark');
+  const {settings, setThemeMode} = useSettings();
+  const scheme: Scheme =
+    settings.themeMode === 'system'
+      ? system === 'light'
+        ? 'light'
+        : 'dark'
+      : settings.themeMode;
   const t = PALETTES[scheme];
-  const toggle = () => setScheme(s => (s === 'dark' ? 'light' : 'dark'));
+  const toggle = () => setThemeMode(scheme === 'dark' ? 'light' : 'dark');
+  const setScheme = (s: Scheme) => setThemeMode(s);
   return (
     <Ctx.Provider value={{scheme, t, toggle, setScheme}}>{children}</Ctx.Provider>
   );

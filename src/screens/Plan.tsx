@@ -1,189 +1,332 @@
-// Hypertrofit · Plan — 12-week program overview. Ported from ui_kits/mobile/PlanYouScreens.jsx.
-import React from 'react';
+// Hypertrofit · Plan — split Tren Superior / Tren Inferior (4 días/sem).
+// Muestra la distribución de la semana, un selector de día y el detalle de la rutina
+// por grupo muscular (series × reps · RPE). Solo visualización (sin logger todavía).
+import React, {useState} from 'react';
 import {View, Text, Pressable, StyleSheet} from 'react-native';
-import {Palette, AccentKey, DARK, LIGHT} from '../theme';
+import {Palette, DARK, LIGHT} from '../theme';
 import {useTheme} from '../ThemeContext';
-import {Screen, Pad, Eyebrow, H1, Meta, Card, Button} from '../components/ui';
-import {Icon} from '../components/Icon';
+import {Screen, Pad, Eyebrow, H1, H2, Meta, Card, Hairline, Button} from '../components/ui';
+import {ExerciseIcon, PATTERN_LABEL} from '../components/ExerciseIcon';
+import {TechniqueModal} from '../components/TechniqueModal';
+import {RoutineEditor} from '../components/RoutineEditor';
+import {useRoutines} from '../RoutinesContext';
+import {
+  WEEK_SPLIT,
+  countExercises,
+  countSets,
+  Prescription,
+  Routine,
+} from '../routines';
 
-const PHASES: {name: string; weeks: number; done: number; color: AccentKey; current: boolean}[] = [
-  {name: 'ACUMULACIÓN', weeks: 4, done: 4, color: 'fg3', current: false},
-  {name: 'INTENSIFICACIÓN', weeks: 4, done: 3, color: 'cyan', current: true},
-  {name: 'REALIZACIÓN', weeks: 3, done: 0, color: 'fg3', current: false},
-  {name: 'DESCARGA', weeks: 1, done: 0, color: 'fg3', current: false},
-];
-
-type Status = 'done' | 'rest' | 'today' | 'planned';
-const SESSIONS: {day: string; name: string; status: Status; focus: string}[] = [
-  {day: 'LUN', name: 'Tirón · A', status: 'done', focus: 'ESPALDA / BÍCEPS'},
-  {day: 'MAR', name: 'Descanso', status: 'rest', focus: 'CAMINATA · 40 MIN'},
-  {day: 'MIÉ', name: 'Pierna · A', status: 'done', focus: 'SENTADILLA / BISAGRA'},
-  {day: 'JUE', name: 'Descanso', status: 'rest', focus: 'MOVILIDAD'},
-  {day: 'VIE', name: 'Empuje · A', status: 'today', focus: 'BANCA / MILITAR'},
-  {day: 'SÁB', name: 'Pierna · B', status: 'planned', focus: 'DEADLIFT'},
-  {day: 'DOM', name: 'Descanso', status: 'rest', focus: 'DESCANSO TOTAL'},
-];
-
-export function Plan({onOpenSession}: {onOpenSession: () => void}) {
+export function Plan({onStart}: {onStart: (routine: Routine) => void}) {
   const {scheme, t} = useTheme();
   const styles = SS[scheme];
+  const {routines, byId} = useRoutines();
+  const [selected, setSelected] = useState(routines[0].id);
+  const [active, setActive] = useState<Prescription | null>(null);
+  const [editing, setEditing] = useState<string | null>(null);
+  const routine = byId(selected) ?? routines[0];
+  const kindColor = routine.kind === 'upper' ? t.cyan : t.mint;
+  const exercises = countExercises(routine);
+  const sets = countSets(routine);
+  const minutes = Math.round(sets * 3.2); // estimación: ~3 min por serie (trabajo + descanso)
+
   return (
     <Screen>
       <Pad y={6}>
-        <Eyebrow>BLOQUE 02 · 12 SEMANAS</Eyebrow>
-        <H1 style={{marginTop: 8}}>{'HIPERTROFIA\n+ FUERZA'}</H1>
+        <Eyebrow>MESOCICLO · HIPERTROFIA</Eyebrow>
+        <H1 style={{marginTop: 8}}>PLAN</H1>
+        <Meta color={t.fg2} style={{marginTop: 6}}>
+          TREN SUPERIOR / INFERIOR · 4 DÍAS
+        </Meta>
       </Pad>
 
-      {/* Block progression */}
+      {/* Distribución de la semana */}
       <Pad y={18}>
-        <Card style={{padding: 18}}>
-          <View style={styles.blockHead}>
-            <Eyebrow color={t.fg2}>BLOQUE · PROGRESIÓN</Eyebrow>
-            <Meta color={t.cyan}>SEMANA 07 / 12</Meta>
-          </View>
-          <View style={styles.phaseBar}>
-            {PHASES.map((p, i) => (
-              <View key={i} style={[styles.phaseGroup, {flex: p.weeks}]}>
-                {Array.from({length: p.weeks}).map((_, j) => {
-                  const filled = j < p.done;
-                  const cur = p.current && j === p.done;
-                  return (
-                    <View
-                      key={j}
-                      style={[
-                        styles.phaseCell,
-                        {backgroundColor: cur ? t.fg : filled ? t[p.color] : t.surface2},
-                      ]}
-                    />
-                  );
-                })}
-              </View>
-            ))}
-          </View>
-          <View style={styles.phaseLabels}>
-            {PHASES.map((p, i) => (
-              <View key={i} style={{flex: p.weeks}}>
-                <Eyebrow color={p.current ? t.cyan : t.fg3} style={{fontSize: 8}}>
-                  {p.name}
-                </Eyebrow>
-              </View>
-            ))}
-          </View>
-        </Card>
-      </Pad>
-
-      {/* This week */}
-      <Pad y={6}>
         <Eyebrow style={{marginBottom: 12}}>ESTA · SEMANA</Eyebrow>
-        <Card style={{padding: 0}}>
-          {SESSIONS.map((s, i) => {
-            const isToday = s.status === 'today';
-            const isRest = s.status === 'rest';
-            const isDone = s.status === 'done';
-            const dayColor = isToday ? t.cyan : isDone ? t.fg : t.fg3;
-            const nameColor = isRest ? t.fg3 : isToday ? t.fg : t.fg1;
+        <View style={styles.weekRow}>
+          {WEEK_SPLIT.map(slot => {
+            const r = slot.routineId ? byId(slot.routineId) : null;
+            const on = !!r && r.id === selected;
+            const accent = r ? (r.kind === 'upper' ? t.cyan : t.mint) : t.fg3;
             return (
               <Pressable
-                key={i}
-                onPress={isToday ? onOpenSession : undefined}
+                key={slot.day}
+                disabled={!r}
+                onPress={() => r && setSelected(r.id)}
                 style={[
-                  styles.sessionRow,
-                  i < SESSIONS.length - 1 ? styles.rowBorder : null,
-                  {backgroundColor: isToday ? t.activeRow : 'transparent'},
+                  styles.weekCell,
+                  {borderColor: on ? accent : t.line, backgroundColor: on ? t.activeRow : 'transparent'},
                 ]}>
-                {isToday ? <View style={styles.activeAccent} /> : null}
-                <Text style={[styles.day, {color: dayColor}]} allowFontScaling={false}>
-                  {s.day}
+                <Text style={[styles.weekDay, {color: r ? t.fg2 : t.fg3}]} allowFontScaling={false}>
+                  {slot.day}
                 </Text>
-                <View style={{flex: 1}}>
-                  <Text style={[styles.sessionName, {color: nameColor}]} allowFontScaling={false}>
-                    {s.name}
-                  </Text>
-                  <Meta color={t.fg3} style={{marginTop: 4}}>
-                    {s.focus}
-                  </Meta>
-                </View>
-                <View style={styles.rowEnd}>
-                  {isDone ? Icon.check({color: t.mint, size: 18}) : null}
-                  {isToday ? Icon.next({color: t.cyan, size: 18}) : null}
-                  {isRest ? <Meta color={t.fg3}>—</Meta> : null}
-                  {s.status === 'planned' ? Icon.next({color: t.fg3, size: 18}) : null}
-                </View>
+                <Text style={[styles.weekTag, {color: r ? accent : t.fgMute}]} allowFontScaling={false}>
+                  {r ? r.short.replace(' · ', '·') : '—'}
+                </Text>
               </Pressable>
             );
           })}
+        </View>
+      </Pad>
+
+      {/* Selector de día (rutinas) */}
+      <Pad y={4}>
+        <View style={styles.chips}>
+          {routines.map(r => {
+            const on = r.id === selected;
+            const accent = r.kind === 'upper' ? t.cyan : t.mint;
+            return (
+              <Pressable
+                key={r.id}
+                onPress={() => setSelected(r.id)}
+                style={[
+                  styles.chip,
+                  {backgroundColor: on ? accent : 'transparent', borderColor: on ? accent : t.lineStrong},
+                ]}>
+                <Text
+                  style={[styles.chipText, {color: on ? t.onAccent : t.fg1}]}
+                  allowFontScaling={false}>
+                  {r.short}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </Pad>
+
+      {/* Resumen de la rutina seleccionada */}
+      <Pad y={14}>
+        <Card accent={kindColor}>
+          <View style={styles.summaryHead}>
+            <Eyebrow color={kindColor}>
+              {routine.kind === 'upper' ? 'TREN SUPERIOR' : 'TREN INFERIOR'}
+            </Eyebrow>
+            <Pressable onPress={() => setEditing(routine.id)} hitSlop={8}>
+              <Text style={[styles.editTxt, {color: t.fg2}]} allowFontScaling={false}>
+                EDITAR
+              </Text>
+            </Pressable>
+          </View>
+          <H2 style={{marginTop: 10}}>{routine.title}</H2>
+          <Meta color={t.fg2} style={{marginTop: 6}}>
+            {routine.focus}
+          </Meta>
+          <Hairline style={{marginVertical: 16}} />
+          <View style={styles.summary}>
+            <SummaryStat t={t} val={`${exercises}`} label="EJERCICIOS" />
+            <SummaryStat t={t} val={`${sets}`} label="SERIES" />
+            <SummaryStat t={t} val={`~${minutes}`} label="MIN" />
+            <SummaryStat t={t} val={`${routine.blocks.length}`} label="GRUPOS" />
+          </View>
         </Card>
       </Pad>
 
-      <Pad y={20}>
-        <Button kind="ghost" full>
-          Ver Programa Completo
+      {/* CTA · iniciar el entrenamiento de la rutina seleccionada */}
+      <Pad y={4}>
+        <Button
+          kind={routine.kind === 'upper' ? 'primary' : 'mint'}
+          full
+          onPress={() => onStart(routine)}>
+          {`Iniciar entrenamiento · ${routine.short}`}
         </Button>
       </Pad>
+
+      {/* Detalle por grupo muscular */}
+      <Pad y={4}>
+        <View style={{gap: 16}}>
+          {routine.blocks.map(block => (
+            <View key={block.group}>
+              <View style={styles.blockHead}>
+                <View style={styles.blockHeadLeft}>
+                  <View style={[styles.dot, {backgroundColor: kindColor}]} />
+                  <Eyebrow color={t.fg2}>{block.group}</Eyebrow>
+                </View>
+                <Meta color={t.fg3}>{block.items.length} EJ</Meta>
+              </View>
+              <Card style={{padding: 0}}>
+                {block.items.map((ex, i) => (
+                  <Pressable
+                    key={ex.name}
+                    onPress={() => setActive(ex)}
+                    style={({pressed}) => [
+                      styles.exRow,
+                      i < block.items.length - 1 ? styles.exBorder : null,
+                      pressed ? {backgroundColor: t.activeRow} : null,
+                    ]}>
+                    <View style={[styles.exThumb, {borderColor: t.lineStrong}]}>
+                      <ExerciseIcon pattern={ex.pattern} color={kindColor} size={22} />
+                    </View>
+                    <View style={styles.exMid}>
+                      <Text style={styles.exName} allowFontScaling={false}>
+                        {ex.name}
+                      </Text>
+                      <Text style={[styles.exTag, {color: t.fg3}]} allowFontScaling={false}>
+                        {PATTERN_LABEL[ex.pattern]}
+                      </Text>
+                    </View>
+                    <Text style={styles.exScheme} allowFontScaling={false}>
+                      {ex.sets} × {ex.reps}
+                      {ex.rpe ? <Text style={{color: kindColor}}>{`\n RPE ${ex.rpe}`}</Text> : null}
+                    </Text>
+                    <Text style={[styles.exPlay, {color: kindColor}]} allowFontScaling={false}>
+                      ▶
+                    </Text>
+                  </Pressable>
+                ))}
+              </Card>
+            </View>
+          ))}
+        </View>
+      </Pad>
+
+      <Pad y={20}>
+        <Hairline />
+        <Meta color={t.fg3} style={{marginTop: 14, textAlign: 'center'}}>
+          Cada tren 2× por semana · sobrecarga progresiva +2.5% / sem
+        </Meta>
+      </Pad>
+
+      <TechniqueModal
+        exercise={active}
+        accent={kindColor}
+        onClose={() => setActive(null)}
+      />
+      <RoutineEditor routineId={editing} onClose={() => setEditing(null)} />
     </Screen>
+  );
+}
+
+function SummaryStat({t, val, label}: {t: Palette; val: string; label: string}) {
+  return (
+    <View style={{alignItems: 'center'}}>
+      <Text style={{color: t.fg, fontSize: 20, fontWeight: '800', fontVariant: ['tabular-nums']}} allowFontScaling={false}>
+        {val}
+      </Text>
+      <Text style={{color: t.fg3, fontSize: 8, fontWeight: '600', letterSpacing: 1.6, marginTop: 4}} allowFontScaling={false}>
+        {label}
+      </Text>
+    </View>
   );
 }
 
 const makeStyles = (t: Palette) =>
   StyleSheet.create({
-  blockHead: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'baseline',
-  },
-  phaseBar: {
-    flexDirection: 'row',
-    gap: 2,
-    marginTop: 14,
-    height: 22,
-  },
-  phaseGroup: {
-    flexDirection: 'row',
-    gap: 2,
-  },
-  phaseCell: {
-    flex: 1,
-  },
-  phaseLabels: {
-    flexDirection: 'row',
-    gap: 2,
-    marginTop: 8,
-  },
-  sessionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-  },
-  rowBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: t.line,
-  },
-  activeAccent: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 2,
-    backgroundColor: t.cyan,
-  },
-  day: {
-    width: 40,
-    textAlign: 'center',
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 2,
-  },
-  sessionName: {
-    fontSize: 15,
-    fontWeight: '600',
-    letterSpacing: 0.9,
-  },
-  rowEnd: {
-    minWidth: 20,
-    alignItems: 'flex-end',
-  },
-});
+    weekRow: {
+      flexDirection: 'row',
+      gap: 5,
+    },
+    weekCell: {
+      flex: 1,
+      borderWidth: 1,
+      borderRadius: 2,
+      paddingVertical: 10,
+      alignItems: 'center',
+      gap: 6,
+    },
+    weekDay: {
+      fontSize: 9,
+      fontWeight: '700',
+      letterSpacing: 1,
+    },
+    weekTag: {
+      fontSize: 8,
+      fontWeight: '700',
+      letterSpacing: 0.5,
+    },
+    chips: {
+      flexDirection: 'row',
+      gap: 8,
+    },
+    chip: {
+      flex: 1,
+      borderWidth: 1,
+      borderRadius: 2,
+      paddingVertical: 10,
+      alignItems: 'center',
+    },
+    chipText: {
+      fontSize: 10,
+      fontWeight: '700',
+      letterSpacing: 1.6,
+    },
+    summary: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+    },
+    summaryHead: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    editTxt: {
+      fontSize: 10,
+      fontWeight: '700',
+      letterSpacing: 1.6,
+    },
+    blockHead: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 10,
+    },
+    blockHeadLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    dot: {
+      width: 6,
+      height: 6,
+      borderRadius: 999,
+    },
+    exRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      paddingVertical: 12,
+      paddingHorizontal: 14,
+    },
+    exBorder: {
+      borderBottomWidth: 1,
+      borderBottomColor: t.line,
+    },
+    exThumb: {
+      width: 38,
+      height: 38,
+      borderWidth: 1,
+      borderRadius: 2,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    exMid: {
+      flex: 1,
+    },
+    exName: {
+      color: t.fg,
+      fontSize: 14,
+      fontWeight: '600',
+      letterSpacing: 0.4,
+    },
+    exTag: {
+      fontSize: 8,
+      fontWeight: '600',
+      letterSpacing: 1.4,
+      marginTop: 3,
+    },
+    exScheme: {
+      color: t.fg2,
+      fontSize: 12,
+      fontWeight: '600',
+      letterSpacing: 0.6,
+      textAlign: 'right',
+      fontVariant: ['tabular-nums'],
+    },
+    exPlay: {
+      fontSize: 9,
+      marginLeft: 10,
+      opacity: 0.7,
+    },
+  });
 
 const SS = {dark: makeStyles(DARK), light: makeStyles(LIGHT)};

@@ -3,7 +3,7 @@
 //   entrenador → su perfil + roster de atletas que sigue + su gym
 //   gym        → su perfil + roster de entrenadores + roster de atletas
 import React from 'react';
-import {View, Text, Pressable, StyleSheet} from 'react-native';
+import {View, Text, Pressable, StyleSheet, Share, Alert} from 'react-native';
 import {Palette, DARK, LIGHT} from '../theme';
 import {useTheme} from '../ThemeContext';
 import {
@@ -19,13 +19,69 @@ import {
 } from '../components/ui';
 import {Icon} from '../components/Icon';
 import {useRole} from '../RoleContext';
-import {PROFILES, RosterEntry, Relation, LiftEntry, Setting} from '../roles';
+import {useSettings, ThemeMode} from '../SettingsContext';
+import {useWorkouts} from '../WorkoutContext';
+import {useRoutines} from '../RoutinesContext';
+import {unitLabel} from '../units';
+import {PROFILES, RosterEntry, Relation, LiftEntry} from '../roles';
+
+const THEME_OPTS: {mode: ThemeMode; label: string}[] = [
+  {mode: 'system', label: 'SISTEMA'},
+  {mode: 'light', label: 'CLARO'},
+  {mode: 'dark', label: 'OSCURO'},
+];
+const REST_OPTS = [60, 90, 120, 150];
 
 export function You() {
   const {role} = useRole();
   const {scheme, t} = useTheme();
   const styles = SS[scheme];
   const p = PROFILES[role];
+  const {settings, setThemeMode, setUnits, setRestDefault} = useSettings();
+  const {sessions, clearSessions} = useWorkouts();
+  const {reset: resetRoutines} = useRoutines();
+
+  // Avanza al siguiente valor de una lista (selector cíclico).
+  const next = <T,>(arr: T[], cur: T) => arr[(arr.indexOf(cur) + 1) % arr.length];
+  const themeLabel =
+    THEME_OPTS.find(o => o.mode === settings.themeMode)?.label ?? 'SISTEMA';
+
+  const cycleTheme = () =>
+    setThemeMode(next(THEME_OPTS.map(o => o.mode), settings.themeMode));
+  const cycleUnits = () => setUnits(settings.units === 'kg' ? 'lb' : 'kg');
+  const cycleRest = () => setRestDefault(next(REST_OPTS, settings.restDefault));
+
+  const exportData = async () => {
+    if (sessions.length === 0) {
+      Alert.alert('Sin datos', 'Aún no tienes entrenamientos para exportar.');
+      return;
+    }
+    try {
+      await Share.share({
+        title: 'Hypertrofit · entrenamientos',
+        message: JSON.stringify(sessions, null, 2),
+      });
+    } catch {
+      // el usuario canceló el diálogo de compartir
+    }
+  };
+
+  const confirmClear = () =>
+    Alert.alert(
+      'Borrar datos',
+      'Se eliminarán tus entrenamientos registrados y se restablecerán las rutinas a las de fábrica. Esta acción no se puede deshacer.',
+      [
+        {text: 'Cancelar', style: 'cancel'},
+        {
+          text: 'Borrar',
+          style: 'destructive',
+          onPress: () => {
+            clearSessions();
+            resetRoutines();
+          },
+        },
+      ],
+    );
 
   return (
     <Screen>
@@ -86,24 +142,71 @@ export function You() {
       {/* Relaciones hacia arriba (mi entrenador / mi gym) */}
       {p.relations ? <RelationsSection relations={p.relations} /> : null}
 
-      {/* Ajustes */}
+      {/* Ajustes (funcionales) */}
       <Pad y={20}>
         <Eyebrow style={{marginBottom: 12}}>AJUSTES</Eyebrow>
         <Card style={{padding: 0}}>
-          {p.settings.map((s: Setting, i: number) => (
-            <View
-              key={s.label}
-              style={[styles.settingRow, i < p.settings.length - 1 ? styles.rowBorder : null]}>
-              <Meta color={t.fg2} style={{flex: 1}}>
-                {s.label}
-              </Meta>
-              <Meta color={t.fg}>{s.value}</Meta>
-              <View style={{marginLeft: 12}}>{Icon.next({color: t.fg3, size: 16})}</View>
-            </View>
-          ))}
+          <SettingRow label="APARIENCIA" value={themeLabel} onPress={cycleTheme} />
+          <SettingRow label="UNIDADES" value={unitLabel(settings.units)} onPress={cycleUnits} />
+          <SettingRow
+            label="DESCANSO · POR DEFECTO"
+            value={`${settings.restDefault} SEG`}
+            onPress={cycleRest}
+            last
+          />
+        </Card>
+        <Meta color={t.fg3} style={{marginTop: 10}}>
+          Toca para cambiar · se aplica al instante en toda la app
+        </Meta>
+      </Pad>
+
+      {/* Datos */}
+      <Pad y={6}>
+        <Eyebrow style={{marginBottom: 12}}>DATOS</Eyebrow>
+        <Card style={{padding: 0}}>
+          <SettingRow
+            label="EXPORTAR ENTRENAMIENTOS"
+            value={`${sessions.length}`}
+            onPress={exportData}
+          />
+          <SettingRow label="BORRAR DATOS" onPress={confirmClear} danger last />
         </Card>
       </Pad>
     </Screen>
+  );
+}
+
+function SettingRow({
+  label,
+  value,
+  onPress,
+  danger,
+  last,
+}: {
+  label: string;
+  value?: string;
+  onPress: () => void;
+  danger?: boolean;
+  last?: boolean;
+}) {
+  const {scheme, t} = useTheme();
+  const styles = SS[scheme];
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({pressed}) => [
+        styles.settingRow,
+        !last ? styles.rowBorder : null,
+        {opacity: pressed ? 0.6 : 1},
+      ]}>
+      <Meta color={danger ? t.danger : t.fg2} style={{flex: 1}}>
+        {label}
+      </Meta>
+      {value ? <Meta color={danger ? t.danger : t.fg}>{value}</Meta> : null}
+      <View style={{marginLeft: 12}}>
+        {Icon.next({color: danger ? t.danger : t.fg3, size: 16})}
+      </View>
+    </Pressable>
   );
 }
 
