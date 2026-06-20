@@ -31,6 +31,25 @@ Hypertrofit es una app de fitness construida a partir del *Hypertrofit Design Sy
 > [!NOTE]
 > Las imágenes son **mockups de referencia** (SVG) en la estética real de la app, no capturas del dispositivo. Reemplázalas por capturas reales en `docs/screenshots/` (ej. `xcrun simctl io booted screenshot` en iOS o `adb exec-out screencap -p` en Android) manteniendo los nombres de archivo.
 
+## 🎬 Demo
+
+<div align="center">
+<sub><em>GIF de navegación · próximamente</em></sub>
+</div>
+
+<!--
+  Cuando exista docs/screenshots/nav.gif, descomenta este bloque y borra el aviso de arriba:
+
+  <div align="center">
+    <img src="docs/screenshots/nav.gif" width="260" alt="Navegación por las pantallas de Hypertrofit"/>
+  </div>
+
+  Para generarlo:
+    xcrun simctl io booted recordVideo docs/screenshots/nav.mov
+    ffmpeg -i docs/screenshots/nav.mov -vf "fps=12,scale=300:-1:flags=lanczos" docs/screenshots/nav.gif
+    rm docs/screenshots/nav.mov
+-->
+
 ## ✨ Características
 
 - **5 pantallas** con navegación inferior de 5 tabs:
