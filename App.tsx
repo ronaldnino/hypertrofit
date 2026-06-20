@@ -16,7 +16,9 @@ import {Icon} from './src/components/Icon';
 import {DevRoleSwitcher} from './src/components/DevRoleSwitcher';
 import {TabBar, TabKey} from './src/components/TabBar';
 import {RoleProvider, useRole} from './src/RoleContext';
+import {WorkoutProvider, useWorkouts} from './src/WorkoutContext';
 import {ROLE_META} from './src/roles';
+import {Routine, ROUTINES, todaysRoutine} from './src/routines';
 import {Today} from './src/screens/Today';
 import {Plan} from './src/screens/Plan';
 import {Train} from './src/screens/Train';
@@ -27,14 +29,17 @@ import {You} from './src/screens/You';
 function Shell() {
   const [tab, setTab] = useState<TabKey>('today');
   // Session runs as a full-screen modal over the tab shell.
-  const [inSession, setInSession] = useState(false);
+  const [sessionRoutine, setSessionRoutine] = useState<Routine | null>(null);
   const {role} = useRole();
+  const {addSession} = useWorkouts();
   const {scheme, t, toggle} = useTheme();
   const styles = SS[scheme];
   const roleMeta = ROLE_META[role];
 
-  const openSession = () => setInSession(true);
-  const closeSession = () => setInSession(false);
+  // Sin rutina explícita, arranca la de hoy (o la primera del split).
+  const openSession = (routine?: Routine) =>
+    setSessionRoutine(routine ?? todaysRoutine() ?? ROUTINES[0]);
+  const closeSession = () => setSessionRoutine(null);
 
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
@@ -42,8 +47,15 @@ function Shell() {
         barStyle={scheme === 'light' ? 'dark-content' : 'light-content'}
         backgroundColor={t.bg}
       />
-      {inSession ? (
-        <Session onClose={closeSession} onComplete={closeSession} />
+      {sessionRoutine ? (
+        <Session
+          routine={sessionRoutine}
+          onClose={closeSession}
+          onComplete={s => {
+            addSession(s);
+            closeSession();
+          }}
+        />
       ) : (
         <>
           <View style={styles.brandBar}>
@@ -68,7 +80,7 @@ function Shell() {
           </View>
           <View style={styles.body}>
             {tab === 'today' && <Today onStart={openSession} />}
-            {tab === 'plan' && <Plan />}
+            {tab === 'plan' && <Plan onStart={openSession} />}
             {tab === 'session' && <Train onStart={openSession} />}
             {tab === 'stats' && <Stats />}
             {tab === 'you' && <You />}
@@ -87,7 +99,9 @@ function App() {
     <SafeAreaProvider>
       <ThemeProvider>
         <RoleProvider>
-          <Shell />
+          <WorkoutProvider>
+            <Shell />
+          </WorkoutProvider>
         </RoleProvider>
       </ThemeProvider>
     </SafeAreaProvider>

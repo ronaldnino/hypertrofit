@@ -1,6 +1,8 @@
-// Hypertrofit · Session — active workout, set logging + rest timer.
-// Ported from ui_kits/mobile/SessionScreen.jsx.
-import React, {useEffect, useRef, useState} from 'react';
+// Hypertrofit · Session — entrenamiento en vivo: recorre los ejercicios de una rutina,
+// registra series (carga/reps/RPE) con timer de descanso y, al terminar, devuelve la
+// sesión completada para persistirla. Precarga la carga desde la última sesión del mismo
+// ejercicio (progresión).
+import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {View, Text, StyleSheet} from 'react-native';
 import {Palette, DARK, LIGHT} from '../theme';
 import {useTheme} from '../ThemeContext';
@@ -18,45 +20,70 @@ import {
   Bar,
 } from '../components/ui';
 import {Icon} from '../components/Icon';
+import {ExerciseIcon, PATTERN_LABEL} from '../components/ExerciseIcon';
+import {Routine} from '../routines';
+import {useWorkouts} from '../WorkoutContext';
+import {
+  CompletedSession,
+  LoggedSet,
+  SessionEntry,
+  flattenExercises,
+  repsLow,
+  lastLoadForExercise,
+} from '../workout';
 
-type LoggedSet = {reps: number; load: number; rpe: number};
-
-const TOTAL_SETS = 4;
 const REST_TARGET = 90;
 
 export function Session({
+  routine,
   onClose,
   onComplete,
 }: {
+  routine: Routine;
   onClose: () => void;
-  onComplete: () => void;
+  onComplete: (s: CompletedSession) => void;
 }) {
   const {scheme, t} = useTheme();
   const styles = SS[scheme];
-  const [load, setLoad] = useState(142.5);
+  const {sessions} = useWorkouts();
+  const accent = routine.kind === 'upper' ? t.cyan : t.mint;
+
+  const exercises = useMemo(() => flattenExercises(routine), [routine]);
+
+  const [exIdx, setExIdx] = useState(0);
+  const ex = exercises[exIdx];
+  // Series registradas por ejercicio (una lista por ejercicio).
+  const [logged, setLogged] = useState<LoggedSet[][]>(() =>
+    exercises.map(() => []),
+  );
+
+  // Entradas del registro actual.
+  const [load, setLoad] = useState(20);
   const [reps, setReps] = useState(8);
-  const [rpe, setRpe] = useState(8.5);
-  const [setIdx, setSetIdx] = useState(2); // working on set 3
-  const [logged, setLogged] = useState<LoggedSet[]>([
-    {reps: 8, load: 142.5, rpe: 7.5},
-    {reps: 8, load: 142.5, rpe: 8.0},
-  ]);
+  const [rpe, setRpe] = useState(8);
+
+  // Al cambiar de ejercicio: precargar valores objetivo (y última carga si existe).
+  useEffect(() => {
+    const prev = lastLoadForExercise(sessions, ex.name);
+    setLoad(prev ?? 20);
+    setReps(repsLow(ex.reps));
+    setRpe(ex.rpe ? Number(ex.rpe) : 8);
+    setResting(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exIdx]);
+
+  // Timer de descanso.
   const [resting, setResting] = useState(false);
   const [restLeft, setRestLeft] = useState(REST_TARGET);
-
-  // Rest countdown
   useEffect(() => {
     if (!resting) return;
-    const id = setInterval(
-      () => setRestLeft(t => Math.max(0, t - 1)),
-      1000,
-    );
+    const id = setInterval(() => setRestLeft(s => Math.max(0, s - 1)), 1000);
     return () => clearInterval(id);
   }, [resting]);
 
-  // Live elapsed session clock (starts at 00:23:48)
-  const [elapsed, setElapsed] = useState(23 * 60 + 48);
-  const elapsedRef = useRef(elapsed);
+  // Reloj de sesión.
+  const [elapsed, setElapsed] = useState(0);
+  const elapsedRef = useRef(0);
   elapsedRef.current = elapsed;
   useEffect(() => {
     const id = setInterval(() => setElapsed(e => e + 1), 1000);
@@ -64,13 +91,46 @@ export function Session({
   }, []);
 
   function logSet() {
-    setLogged(l => [...l, {reps, load, rpe}]);
-    setSetIdx(i => i + 1);
+    setLogged(all => {
+      const copy = all.map(a => a.slice());
+      copy[exIdx].push({reps, load, rpe});
+      return copy;
+    });
     setResting(true);
     setRestLeft(REST_TARGET);
   }
 
-  const done = logged.length;
+  function finish() {
+    const entries: SessionEntry[] = exercises
+      .map((e, i) => ({
+        name: e.name,
+        pattern: e.pattern,
+        target: `${e.sets} × ${e.reps}`,
+        sets: logged[i],
+      }))
+      .filter(e => e.sets.length > 0);
+    if (entries.length === 0) {
+      onClose();
+      return;
+    }
+    onComplete({
+      id: String(Date.now()),
+      routineId: routine.id,
+      routineTitle: routine.title,
+      kind: routine.kind,
+      date: Date.now(),
+      durationSec: elapsedRef.current,
+      entries,
+    });
+  }
+
+  const doneHere = logged[exIdx].length;
+  const targetHere = ex.sets;
+  const totalSetsDone = logged.reduce((n, a) => n + a.length, 0);
+  const totalSetsTarget = exercises.reduce((n, e) => n + e.sets, 0);
+  const remaining = Math.max(0, targetHere - doneHere - 1);
+  const isLast = exIdx === exercises.length - 1;
+
   const hhmmss = (s: number) =>
     `${String(Math.floor(s / 3600)).padStart(2, '0')}:${String(
       Math.floor((s % 3600) / 60),
@@ -78,11 +138,9 @@ export function Session({
   const mmss = (s: number) =>
     `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 
-  const remaining = Math.max(0, TOTAL_SETS - logged.length - 1);
-
   return (
     <View style={{flex: 1, backgroundColor: t.bg}}>
-      {/* Sticky session header (outside scroll) */}
+      {/* Cabecera fija de sesión */}
       <View style={styles.header}>
         <Pad y={14}>
           <View style={styles.headTop}>
@@ -90,8 +148,8 @@ export function Session({
               {Icon.back({color: t.fg1, size: 18})}
             </IconButton>
             <View style={styles.liveWrap}>
-              <View style={styles.liveDot} />
-              <Eyebrow color={t.cyan}>EN VIVO</Eyebrow>
+              <View style={[styles.liveDot, {backgroundColor: accent}]} />
+              <Eyebrow color={accent}>EN VIVO</Eyebrow>
               <Text style={styles.clock} allowFontScaling={false}>
                 {hhmmss(elapsed)}
               </Text>
@@ -101,47 +159,70 @@ export function Session({
             </IconButton>
           </View>
 
-          {/* Segmented session bar */}
+          {/* Barra segmentada por ejercicio */}
           <View style={styles.segBar}>
-            {Array.from({length: 18}).map((_, i) => {
-              const filled = i < 7;
-              const cur = i === 7;
+            {exercises.map((e, i) => {
+              const cnt = logged[i].length;
+              const complete = cnt >= e.sets;
+              const cur = i === exIdx;
               return (
                 <View
                   key={i}
                   style={[
                     styles.seg,
-                    {backgroundColor: cur ? t.fg : filled ? t.cyan : t.surface2},
+                    {
+                      backgroundColor: cur
+                        ? t.fg
+                        : complete
+                        ? accent
+                        : cnt > 0
+                        ? t.fg3
+                        : t.surface2,
+                    },
                   ]}
                 />
               );
             })}
           </View>
           <View style={styles.segLabels}>
-            <Meta color={t.fg2}>EJ 02 / 05</Meta>
-            <Meta color={t.fg}>PRESS DE BANCA</Meta>
-            <Meta color={t.fg2}>40%</Meta>
+            <Meta color={t.fg2}>
+              EJ {String(exIdx + 1).padStart(2, '0')} / {String(exercises.length).padStart(2, '0')}
+            </Meta>
+            <Meta color={t.fg}>{routine.short}</Meta>
+            <Meta color={t.fg2}>
+              {Math.round((totalSetsDone / Math.max(1, totalSetsTarget)) * 100)}%
+            </Meta>
           </View>
         </Pad>
       </View>
 
-      <Screen padTop={0} padBottom={120}>
-        {/* Current exercise hero */}
+      <Screen padTop={0} padBottom={140}>
+        {/* Ejercicio actual */}
         <Pad y={20}>
-          <Eyebrow color={t.fg3}>EJECUTANDO AHORA</Eyebrow>
-          <H1 style={{marginTop: 8}}>PRESS DE BANCA</H1>
-          <Meta style={{marginTop: 10}}>3 × 8 · TEMPO 3-0-1-0 · RPE 8</Meta>
+          <View style={styles.heroRow}>
+            <View style={[styles.heroThumb, {borderColor: t.lineStrong}]}>
+              <ExerciseIcon pattern={ex.pattern} color={accent} size={26} />
+            </View>
+            <View style={{flex: 1}}>
+              <Eyebrow color={t.fg3}>EJECUTANDO AHORA</Eyebrow>
+              <H1 style={{marginTop: 6}}>{ex.name}</H1>
+            </View>
+          </View>
+          <Meta style={{marginTop: 12}}>
+            {ex.sets} × {ex.reps}
+            {ex.rpe ? ` · RPE ${ex.rpe}` : ''} · {PATTERN_LABEL[ex.pattern]}
+          </Meta>
         </Pad>
 
-        {/* Set logger */}
+        {/* Registro de serie */}
         <Pad y={6}>
           <Card style={{padding: 18}}>
             <View style={styles.logHead}>
-              <Eyebrow color={t.cyan}>
-                SERIE {String(setIdx + 1).padStart(2, '0')} · REGISTRO
+              <Eyebrow color={accent}>
+                SERIE {String(doneHere + 1).padStart(2, '0')} · REGISTRO
               </Eyebrow>
               <Meta color={t.fg3}>
-                {done} DE {TOTAL_SETS} HECHAS
+                {doneHere} DE {targetHere} HECHAS
               </Meta>
             </View>
 
@@ -161,24 +242,27 @@ export function Session({
             </View>
 
             <View style={{marginTop: 18}}>
-              <Button kind="primary" full onPress={logSet}>
+              <Button
+                kind={routine.kind === 'upper' ? 'primary' : 'mint'}
+                full
+                onPress={logSet}>
                 {`REGISTRAR SERIE · ${load.toFixed(1)} × ${reps}`}
               </Button>
             </View>
           </Card>
         </Pad>
 
-        {/* Rest timer block */}
+        {/* Timer de descanso */}
         {resting ? (
           <Pad y={16}>
-            <Card style={{padding: 18, borderColor: t.cyan}}>
-              <Eyebrow color={t.cyan}>DESCANSO · OBJETIVO 90 SEG</Eyebrow>
+            <Card style={{padding: 18, borderColor: accent}}>
+              <Eyebrow color={accent}>DESCANSO · OBJETIVO 90 SEG</Eyebrow>
               <View style={styles.restRow}>
-                <Num size={48} color={t.cyan}>
+                <Num size={48} color={accent}>
                   {mmss(restLeft)}
                 </Num>
                 <View style={{flex: 1}}>
-                  <Bar value={(restLeft / REST_TARGET) * 100} color={t.cyan} height={2} />
+                  <Bar value={(restLeft / REST_TARGET) * 100} color={accent} height={2} />
                   <Meta color={t.fg2} style={{marginTop: 8}}>
                     RESPIRA · 4 INHALA · 6 EXHALA
                   </Meta>
@@ -191,24 +275,42 @@ export function Session({
           </Pad>
         ) : null}
 
-        {/* Completed sets table */}
+        {/* Tabla de series del ejercicio actual */}
         <Pad y={20}>
-          <Eyebrow style={{marginBottom: 12}}>SERIES · COMPLETAS</Eyebrow>
+          <Eyebrow style={{marginBottom: 12}}>SERIES · {ex.name.toUpperCase()}</Eyebrow>
           <Card style={{padding: 0}}>
             <SetHeaderRow />
-            {logged.map((s, i) => (
-              <SetRow key={i} n={i + 1} reps={s.reps} load={s.load} rpe={s.rpe} done />
+            {logged[exIdx].map((s, i) => (
+              <SetRow key={i} n={i + 1} reps={s.reps} load={s.load} rpe={s.rpe} done accent={accent} />
             ))}
-            <SetRow n={logged.length + 1} reps={reps} load={load} rpe={rpe} active />
+            <SetRow n={doneHere + 1} reps={reps} load={load} rpe={rpe} active accent={accent} />
             {Array.from({length: remaining}).map((_, i) => (
-              <SetRow key={`empty-${i}`} n={logged.length + 2 + i} planned />
+              <SetRow key={`empty-${i}`} n={doneHere + 2 + i} planned accent={accent} />
             ))}
           </Card>
         </Pad>
 
+        {/* Navegación entre ejercicios */}
         <Pad y={6}>
-          <Button kind="secondary" full onPress={onComplete}>
-            Terminar Ejercicio
+          <View style={styles.navRow}>
+            <Button
+              kind="ghost"
+              onPress={() => setExIdx(i => Math.max(0, i - 1))}
+              style={styles.navBtn}>
+              ← Anterior
+            </Button>
+            <Button
+              kind="ghost"
+              onPress={() => setExIdx(i => Math.min(exercises.length - 1, i + 1))}
+              style={styles.navBtn}>
+              Siguiente →
+            </Button>
+          </View>
+        </Pad>
+
+        <Pad y={10}>
+          <Button kind={isLast ? 'mint' : 'secondary'} full onPress={finish}>
+            {`Terminar entrenamiento · ${totalSetsDone} series`}
           </Button>
         </Pad>
       </Screen>
@@ -264,6 +366,7 @@ function SetRow({
   done,
   active,
   planned,
+  accent,
 }: {
   n: number;
   reps?: number;
@@ -272,10 +375,11 @@ function SetRow({
   done?: boolean;
   active?: boolean;
   planned?: boolean;
+  accent: string;
 }) {
   const {scheme, t} = useTheme();
   const styles = SS[scheme];
-  const txt = planned ? t.fg3 : active ? t.cyan : t.fg;
+  const txt = planned ? t.fg3 : active ? accent : t.fg;
   const fw = active || done ? '700' : '500';
   return (
     <View
@@ -287,19 +391,13 @@ function SetRow({
       <Text style={[styles.tdN, styles.tColN]} allowFontScaling={false}>
         {String(n).padStart(2, '0')}
       </Text>
-      <Text
-        style={[styles.td, styles.tCol, {color: txt, fontWeight: fw}]}
-        allowFontScaling={false}>
+      <Text style={[styles.td, styles.tCol, {color: txt, fontWeight: fw}]} allowFontScaling={false}>
         {planned ? '—' : reps}
       </Text>
-      <Text
-        style={[styles.td, styles.tCol, {color: txt, fontWeight: fw}]}
-        allowFontScaling={false}>
+      <Text style={[styles.td, styles.tCol, {color: txt, fontWeight: fw}]} allowFontScaling={false}>
         {planned ? '—' : `${load} kg`}
       </Text>
-      <Text
-        style={[styles.td, styles.tCol, {color: txt, fontWeight: fw}]}
-        allowFontScaling={false}>
+      <Text style={[styles.td, styles.tCol, {color: txt, fontWeight: fw}]} allowFontScaling={false}>
         {planned ? '—' : rpe}
       </Text>
       <View style={styles.tColCheck}>
@@ -311,113 +409,132 @@ function SetRow({
 
 const makeStyles = (t: Palette) =>
   StyleSheet.create({
-  header: {
-    backgroundColor: t.bg,
-    borderBottomWidth: 1,
-    borderBottomColor: t.line,
-  },
-  headTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 10,
-  },
-  liveWrap: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-  },
-  liveDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 999,
-    backgroundColor: t.cyan,
-  },
-  clock: {
-    color: t.fg,
-    fontSize: 13,
-    letterSpacing: 1,
-    fontVariant: ['tabular-nums'],
-    fontWeight: '600',
-  },
-  segBar: {
-    flexDirection: 'row',
-    gap: 2,
-    marginTop: 14,
-  },
-  seg: {
-    flex: 1,
-    height: 4,
-  },
-  segLabels: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 10,
-  },
-  logHead: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'baseline',
-  },
-  fieldRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 14,
-  },
-  restRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 18,
-    marginTop: 12,
-  },
-  // table
-  tRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  tBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: t.line,
-  },
-  th: {
-    color: t.fg3,
-    fontSize: 10,
-    fontWeight: '600',
-    letterSpacing: 2.2,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-  },
-  td: {
-    fontSize: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    fontVariant: ['tabular-nums'],
-  },
-  tdN: {
-    color: t.fg3,
-    fontSize: 11,
-    fontWeight: '600',
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    textAlign: 'center',
-    fontVariant: ['tabular-nums'],
-  },
-  tCol: {
-    flex: 1,
-  },
-  tColN: {
-    width: 40,
-    textAlign: 'center',
-    flexGrow: 0,
-    flexShrink: 0,
-  },
-  tColCheck: {
-    width: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
+    header: {
+      backgroundColor: t.bg,
+      borderBottomWidth: 1,
+      borderBottomColor: t.line,
+    },
+    headTop: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      gap: 10,
+    },
+    liveWrap: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
+    },
+    liveDot: {
+      width: 6,
+      height: 6,
+      borderRadius: 999,
+    },
+    clock: {
+      color: t.fg,
+      fontSize: 13,
+      letterSpacing: 1,
+      fontVariant: ['tabular-nums'],
+      fontWeight: '600',
+    },
+    segBar: {
+      flexDirection: 'row',
+      gap: 2,
+      marginTop: 14,
+    },
+    seg: {
+      flex: 1,
+      height: 4,
+    },
+    segLabels: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginTop: 10,
+    },
+    heroRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 14,
+    },
+    heroThumb: {
+      width: 46,
+      height: 46,
+      borderWidth: 1,
+      borderRadius: 2,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    logHead: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'baseline',
+    },
+    fieldRow: {
+      flexDirection: 'row',
+      gap: 10,
+      marginTop: 14,
+    },
+    restRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 18,
+      marginTop: 12,
+    },
+    navRow: {
+      flexDirection: 'row',
+      gap: 10,
+    },
+    navBtn: {
+      flex: 1,
+    },
+    // tabla
+    tRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    tBorder: {
+      borderBottomWidth: 1,
+      borderBottomColor: t.line,
+    },
+    th: {
+      color: t.fg3,
+      fontSize: 10,
+      fontWeight: '600',
+      letterSpacing: 2.2,
+      paddingVertical: 12,
+      paddingHorizontal: 14,
+    },
+    td: {
+      fontSize: 14,
+      paddingVertical: 14,
+      paddingHorizontal: 14,
+      fontVariant: ['tabular-nums'],
+    },
+    tdN: {
+      color: t.fg3,
+      fontSize: 11,
+      fontWeight: '600',
+      paddingVertical: 14,
+      paddingHorizontal: 14,
+      textAlign: 'center',
+      fontVariant: ['tabular-nums'],
+    },
+    tCol: {
+      flex: 1,
+    },
+    tColN: {
+      width: 40,
+      textAlign: 'center',
+      flexGrow: 0,
+      flexShrink: 0,
+    },
+    tColCheck: {
+      width: 30,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+  });
 
 const SS = {dark: makeStyles(DARK), light: makeStyles(LIGHT)};

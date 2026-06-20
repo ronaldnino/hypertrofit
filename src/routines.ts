@@ -456,6 +456,13 @@ export const guideFor = (
 
 // Helpers de resumen
 export const routineById = (id: string) => ROUTINES.find(r => r.id === id);
+
+// Rutina asignada a HOY según el split semanal (o undefined si es día de descanso).
+export const todaysRoutine = (): Routine | undefined => {
+  const idx = (new Date().getDay() + 6) % 7; // JS: 0=Dom → WEEK_SPLIT empieza en LUN
+  const slot = WEEK_SPLIT[idx];
+  return slot?.routineId ? routineById(slot.routineId) : undefined;
+};
 export const countExercises = (r: Routine) =>
   r.blocks.reduce((n, b) => n + b.items.length, 0);
 export const countSets = (r: Routine) =>

@@ -5,7 +5,7 @@ import React, {useState} from 'react';
 import {View, Text, Pressable, StyleSheet} from 'react-native';
 import {Palette, DARK, LIGHT} from '../theme';
 import {useTheme} from '../ThemeContext';
-import {Screen, Pad, Eyebrow, H1, H2, Meta, Card, Hairline} from '../components/ui';
+import {Screen, Pad, Eyebrow, H1, H2, Meta, Card, Hairline, Button} from '../components/ui';
 import {ExerciseIcon, PATTERN_LABEL} from '../components/ExerciseIcon';
 import {TechniqueModal} from '../components/TechniqueModal';
 import {
@@ -15,9 +15,10 @@ import {
   countExercises,
   countSets,
   Prescription,
+  Routine,
 } from '../routines';
 
-export function Plan() {
+export function Plan({onStart}: {onStart: (routine: Routine) => void}) {
   const {scheme, t} = useTheme();
   const styles = SS[scheme];
   const [selected, setSelected] = useState(ROUTINES[0].id);
@@ -110,6 +111,16 @@ export function Plan() {
             <SummaryStat t={t} val={`${routine.blocks.length}`} label="GRUPOS" />
           </View>
         </Card>
+      </Pad>
+
+      {/* CTA · iniciar el entrenamiento de la rutina seleccionada */}
+      <Pad y={4}>
+        <Button
+          kind={routine.kind === 'upper' ? 'primary' : 'mint'}
+          full
+          onPress={() => onStart(routine)}>
+          {`Iniciar entrenamiento · ${routine.short}`}
+        </Button>
       </Pad>
 
       {/* Detalle por grupo muscular */}
