@@ -3,7 +3,15 @@
 // sesión completada para persistirla. Precarga la carga desde la última sesión del mismo
 // ejercicio (progresión).
 import React, {useEffect, useMemo, useRef, useState} from 'react';
-import {View, Text, StyleSheet} from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Modal,
+  Pressable,
+  ScrollView,
+  Vibration,
+} from 'react-native';
 import {Palette, DARK, LIGHT} from '../theme';
 import {useTheme} from '../ThemeContext';
 import {
@@ -20,9 +28,10 @@ import {
   Bar,
 } from '../components/ui';
 import {Icon} from '../components/Icon';
-import {ExerciseIcon, PATTERN_LABEL} from '../components/ExerciseIcon';
-import {Routine} from '../routines';
+import {ExerciseIcon, PATTERN_LABEL, Pattern} from '../components/ExerciseIcon';
+import {Routine, Prescription} from '../routines';
 import {useWorkouts} from '../WorkoutContext';
+import {useRoutines} from '../RoutinesContext';
 import {useSettings} from '../SettingsContext';
 import {fromKg, toKg, unitLabel, stepFor, roundToStep} from '../units';
 import {
@@ -47,11 +56,29 @@ export function Session({
   const styles = SS[scheme];
   const {sessions} = useWorkouts();
   const {settings} = useSettings();
+  const {routines} = useRoutines();
   const units = settings.units;
   const restTarget = settings.restDefault;
   const accent = routine.kind === 'upper' ? t.cyan : t.mint;
 
-  const exercises = useMemo(() => flattenExercises(routine), [routine]);
+  // Lista de ejercicios en vivo (mutable: se pueden añadir sobre la marcha).
+  const [exercises, setExercises] = useState<Prescription[]>(() =>
+    flattenExercises(routine),
+  );
+  const [adding, setAdding] = useState(false);
+
+  // Catálogo de ejercicios (de todas las rutinas) para el añadido en vivo.
+  const catalog = useMemo(() => {
+    const m = new Map<string, Pattern>();
+    routines.forEach(r =>
+      r.blocks.forEach(b =>
+        b.items.forEach(it => {
+          if (!m.has(it.name)) m.set(it.name, it.pattern);
+        }),
+      ),
+    );
+    return [...m.entries()].map(([name, pattern]) => ({name, pattern}));
+  }, [routines]);
 
   const [exIdx, setExIdx] = useState(0);
   const ex = exercises[exIdx];
@@ -76,14 +103,19 @@ export function Session({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exIdx]);
 
-  // Timer de descanso.
+  // Timer de descanso (vibra al llegar a 0).
   const [resting, setResting] = useState(false);
   const [restLeft, setRestLeft] = useState(restTarget);
   useEffect(() => {
     if (!resting) return;
-    const id = setInterval(() => setRestLeft(s => Math.max(0, s - 1)), 1000);
-    return () => clearInterval(id);
-  }, [resting]);
+    if (restLeft <= 0) {
+      Vibration.vibrate([0, 300, 150, 300]);
+      setResting(false);
+      return;
+    }
+    const id = setTimeout(() => setRestLeft(s => s - 1), 1000);
+    return () => clearTimeout(id);
+  }, [resting, restLeft]);
 
   // Reloj de sesión.
   const [elapsed, setElapsed] = useState(0);
@@ -131,10 +163,22 @@ export function Session({
 
   const doneHere = logged[exIdx].length;
   const targetHere = ex.sets;
+  const complete = doneHere >= targetHere;
   const totalSetsDone = logged.reduce((n, a) => n + a.length, 0);
   const totalSetsTarget = exercises.reduce((n, e) => n + e.sets, 0);
   const remaining = Math.max(0, targetHere - doneHere - 1);
   const isLast = exIdx === exercises.length - 1;
+
+  const goPrev = () => setExIdx(i => Math.max(0, i - 1));
+  const goNext = () => setExIdx(i => Math.min(exercises.length - 1, i + 1));
+
+  // Añade un ejercicio extra a la sesión en vivo y salta a él.
+  const addLive = (c: {name: string; pattern: Pattern}) => {
+    setExercises(xs => [...xs, {name: c.name, sets: 3, reps: '10', pattern: c.pattern}]);
+    setLogged(l => [...l, []]);
+    setExIdx(exercises.length);
+    setAdding(false);
+  };
 
   const hhmmss = (s: number) =>
     `${String(Math.floor(s / 3600)).padStart(2, '0')}:${String(
@@ -209,7 +253,9 @@ export function Session({
               <ExerciseIcon pattern={ex.pattern} color={accent} size={26} />
             </View>
             <View style={{flex: 1}}>
-              <Eyebrow color={t.fg3}>EJECUTANDO AHORA</Eyebrow>
+              <Eyebrow color={complete ? accent : t.fg3}>
+                {complete ? 'EJERCICIO COMPLETO ✓' : 'EJECUTANDO AHORA'}
+              </Eyebrow>
               <H1 style={{marginTop: 6}}>{ex.name}</H1>
             </View>
           </View>
@@ -297,18 +343,21 @@ export function Session({
 
         {/* Navegación entre ejercicios */}
         <Pad y={6}>
-          <View style={styles.navRow}>
+          {!isLast ? (
             <Button
-              kind="ghost"
-              onPress={() => setExIdx(i => Math.max(0, i - 1))}
-              style={styles.navBtn}>
+              kind={complete ? 'mint' : 'ghost'}
+              full
+              onPress={goNext}
+              style={styles.nextBtn}>
+              {complete ? 'Siguiente ejercicio ✓' : 'Saltar ejercicio →'}
+            </Button>
+          ) : null}
+          <View style={styles.navRow}>
+            <Button kind="ghost" onPress={goPrev} style={styles.navBtn}>
               ← Anterior
             </Button>
-            <Button
-              kind="ghost"
-              onPress={() => setExIdx(i => Math.min(exercises.length - 1, i + 1))}
-              style={styles.navBtn}>
-              Siguiente →
+            <Button kind="ghost" onPress={() => setAdding(true)} style={styles.navBtn}>
+              + Añadir ejercicio
             </Button>
           </View>
         </Pad>
@@ -319,6 +368,47 @@ export function Session({
           </Button>
         </Pad>
       </Screen>
+
+      {/* Modal · añadir ejercicio en vivo desde el catálogo */}
+      <Modal
+        visible={adding}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setAdding(false)}
+        statusBarTranslucent>
+        <Pressable style={styles.backdrop} onPress={() => setAdding(false)}>
+          <Pressable style={styles.sheet} onPress={() => {}}>
+            <View style={styles.grabber} />
+            <Eyebrow color={accent}>AÑADIR · EJERCICIO</Eyebrow>
+            <ScrollView
+              style={styles.catScroll}
+              showsVerticalScrollIndicator={false}>
+              {catalog.map(c => (
+                <Pressable
+                  key={c.name}
+                  onPress={() => addLive(c)}
+                  style={({pressed}) => [
+                    styles.catRow,
+                    {borderColor: t.line, opacity: pressed ? 0.6 : 1},
+                  ]}>
+                  <View style={[styles.catThumb, {borderColor: t.lineStrong}]}>
+                    <ExerciseIcon pattern={c.pattern} color={accent} size={18} />
+                  </View>
+                  <Text style={styles.catName} allowFontScaling={false}>
+                    {c.name}
+                  </Text>
+                  <Text style={[styles.catAdd, {color: accent}]} allowFontScaling={false}>
+                    +
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+            <Button kind="ghost" full onPress={() => setAdding(false)} style={styles.catClose}>
+              Cerrar
+            </Button>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -489,12 +579,71 @@ const makeStyles = (t: Palette) =>
       gap: 18,
       marginTop: 12,
     },
+    nextBtn: {
+      marginBottom: 10,
+    },
     navRow: {
       flexDirection: 'row',
       gap: 10,
     },
     navBtn: {
       flex: 1,
+    },
+    backdrop: {
+      flex: 1,
+      backgroundColor: t.bg === '#0A0A0A' ? '#000000CC' : '#0A0A0A66',
+      justifyContent: 'flex-end',
+    },
+    sheet: {
+      backgroundColor: t.surface1,
+      borderTopWidth: 1,
+      borderColor: t.lineStrong,
+      borderTopLeftRadius: 4,
+      borderTopRightRadius: 4,
+      paddingHorizontal: 20,
+      paddingTop: 12,
+      paddingBottom: 28,
+    },
+    grabber: {
+      alignSelf: 'center',
+      width: 36,
+      height: 4,
+      borderRadius: 999,
+      backgroundColor: t.lineStrong,
+      marginBottom: 18,
+    },
+    catScroll: {
+      maxHeight: 380,
+      marginTop: 14,
+    },
+    catRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+    },
+    catThumb: {
+      width: 34,
+      height: 34,
+      borderWidth: 1,
+      borderRadius: 2,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    catName: {
+      flex: 1,
+      color: t.fg,
+      fontSize: 14,
+      fontWeight: '600',
+      letterSpacing: 0.3,
+    },
+    catAdd: {
+      fontSize: 20,
+      fontWeight: '700',
+    },
+    catClose: {
+      marginTop: 14,
     },
     // tabla
     tRow: {
