@@ -8,10 +8,10 @@ import {useTheme} from '../ThemeContext';
 import {Screen, Pad, Eyebrow, H1, H2, Meta, Card, Hairline, Button} from '../components/ui';
 import {ExerciseIcon, PATTERN_LABEL} from '../components/ExerciseIcon';
 import {TechniqueModal} from '../components/TechniqueModal';
+import {RoutineEditor} from '../components/RoutineEditor';
+import {useRoutines} from '../RoutinesContext';
 import {
-  ROUTINES,
   WEEK_SPLIT,
-  routineById,
   countExercises,
   countSets,
   Prescription,
@@ -21,9 +21,11 @@ import {
 export function Plan({onStart}: {onStart: (routine: Routine) => void}) {
   const {scheme, t} = useTheme();
   const styles = SS[scheme];
-  const [selected, setSelected] = useState(ROUTINES[0].id);
+  const {routines, byId} = useRoutines();
+  const [selected, setSelected] = useState(routines[0].id);
   const [active, setActive] = useState<Prescription | null>(null);
-  const routine = routineById(selected) ?? ROUTINES[0];
+  const [editing, setEditing] = useState<string | null>(null);
+  const routine = byId(selected) ?? routines[0];
   const kindColor = routine.kind === 'upper' ? t.cyan : t.mint;
   const exercises = countExercises(routine);
   const sets = countSets(routine);
@@ -44,7 +46,7 @@ export function Plan({onStart}: {onStart: (routine: Routine) => void}) {
         <Eyebrow style={{marginBottom: 12}}>ESTA · SEMANA</Eyebrow>
         <View style={styles.weekRow}>
           {WEEK_SPLIT.map(slot => {
-            const r = slot.routineId ? routineById(slot.routineId) : null;
+            const r = slot.routineId ? byId(slot.routineId) : null;
             const on = !!r && r.id === selected;
             const accent = r ? (r.kind === 'upper' ? t.cyan : t.mint) : t.fg3;
             return (
@@ -71,7 +73,7 @@ export function Plan({onStart}: {onStart: (routine: Routine) => void}) {
       {/* Selector de día (rutinas) */}
       <Pad y={4}>
         <View style={styles.chips}>
-          {ROUTINES.map(r => {
+          {routines.map(r => {
             const on = r.id === selected;
             const accent = r.kind === 'upper' ? t.cyan : t.mint;
             return (
@@ -96,9 +98,16 @@ export function Plan({onStart}: {onStart: (routine: Routine) => void}) {
       {/* Resumen de la rutina seleccionada */}
       <Pad y={14}>
         <Card accent={kindColor}>
-          <Eyebrow color={kindColor}>
-            {routine.kind === 'upper' ? 'TREN SUPERIOR' : 'TREN INFERIOR'}
-          </Eyebrow>
+          <View style={styles.summaryHead}>
+            <Eyebrow color={kindColor}>
+              {routine.kind === 'upper' ? 'TREN SUPERIOR' : 'TREN INFERIOR'}
+            </Eyebrow>
+            <Pressable onPress={() => setEditing(routine.id)} hitSlop={8}>
+              <Text style={[styles.editTxt, {color: t.fg2}]} allowFontScaling={false}>
+                EDITAR
+              </Text>
+            </Pressable>
+          </View>
           <H2 style={{marginTop: 10}}>{routine.title}</H2>
           <Meta color={t.fg2} style={{marginTop: 6}}>
             {routine.focus}
@@ -183,6 +192,7 @@ export function Plan({onStart}: {onStart: (routine: Routine) => void}) {
         accent={kindColor}
         onClose={() => setActive(null)}
       />
+      <RoutineEditor routineId={editing} onClose={() => setEditing(null)} />
     </Screen>
   );
 }
@@ -243,6 +253,16 @@ const makeStyles = (t: Palette) =>
     summary: {
       flexDirection: 'row',
       justifyContent: 'space-between',
+    },
+    summaryHead: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    editTxt: {
+      fontSize: 10,
+      fontWeight: '700',
+      letterSpacing: 1.6,
     },
     blockHead: {
       flexDirection: 'row',

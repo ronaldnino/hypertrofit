@@ -17,8 +17,9 @@ import {DevRoleSwitcher} from './src/components/DevRoleSwitcher';
 import {TabBar, TabKey} from './src/components/TabBar';
 import {RoleProvider, useRole} from './src/RoleContext';
 import {WorkoutProvider, useWorkouts} from './src/WorkoutContext';
+import {RoutinesProvider, useRoutines} from './src/RoutinesContext';
 import {ROLE_META} from './src/roles';
-import {Routine, ROUTINES, todaysRoutine} from './src/routines';
+import {Routine} from './src/routines';
 import {Today} from './src/screens/Today';
 import {Plan} from './src/screens/Plan';
 import {Train} from './src/screens/Train';
@@ -32,13 +33,14 @@ function Shell() {
   const [sessionRoutine, setSessionRoutine] = useState<Routine | null>(null);
   const {role} = useRole();
   const {addSession} = useWorkouts();
+  const {todays, routines} = useRoutines();
   const {scheme, t, toggle} = useTheme();
   const styles = SS[scheme];
   const roleMeta = ROLE_META[role];
 
   // Sin rutina explícita, arranca la de hoy (o la primera del split).
   const openSession = (routine?: Routine) =>
-    setSessionRoutine(routine ?? todaysRoutine() ?? ROUTINES[0]);
+    setSessionRoutine(routine ?? todays() ?? routines[0]);
   const closeSession = () => setSessionRoutine(null);
 
   return (
@@ -99,9 +101,11 @@ function App() {
     <SafeAreaProvider>
       <ThemeProvider>
         <RoleProvider>
-          <WorkoutProvider>
-            <Shell />
-          </WorkoutProvider>
+          <RoutinesProvider>
+            <WorkoutProvider>
+              <Shell />
+            </WorkoutProvider>
+          </RoutinesProvider>
         </RoleProvider>
       </ThemeProvider>
     </SafeAreaProvider>
