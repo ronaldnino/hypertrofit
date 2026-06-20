@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="280" height="580" viewBox="0 0 280 580" font-family="Helvetica,Arial,sans-serif">
+  <rect x="2" y="2" width="276" height="576" rx="22" fill="#0A0A0A" stroke="#2E2E2E"/>
+  <!-- brand bar -->
+  <text x="20" y="40" font-size="13" font-weight="800" letter-spacing="1.6" fill="#FFFFFF">HYPERTRO<tspan fill="#00FFFF">FIT</tspan></text>
+  <rect x="200" y="28" width="60" height="16" rx="2" fill="none" stroke="#00FFFF"/>
+  <circle cx="210" cy="36" r="3" fill="#00FFFF"/>
+  <text x="218" y="40" font-size="8" font-weight="700" letter-spacing="1.4" fill="#C0C0C0">ATLETA</text>
+  <line x1="0" y1="56" x2="280" y2="56" stroke="#1F1F1F"/>
+  <!-- header -->
+  <text x="20" y="84" font-size="9" font-weight="600" letter-spacing="2.2" fill="#8A8A8A">ENTRENAMIENTO · INTELIGENCIA</text>
+  <text x="20" y="110" font-size="24" font-weight="800" letter-spacing="2" fill="#FFFFFF">PROGRESO</text>
+  <!-- chips -->
+  <g font-size="8" font-weight="700" letter-spacing="1.5">
+    <rect x="16" y="124" width="34" height="22" rx="2" fill="none" stroke="#2E2E2E"/><text x="33" y="139" fill="#C0C0C0" text-anchor="middle">4S</text>
+    <rect x="54" y="124" width="38" height="22" rx="2" fill="#00FFFF"/><text x="73" y="139" fill="#0A0A0A" text-anchor="middle">12S</text>
+    <rect x="96" y="124" width="34" height="22" rx="2" fill="none" stroke="#2E2E2E"/><text x="113" y="139" fill="#C0C0C0" text-anchor="middle">6M</text>
+    <rect x="134" y="124" width="34" height="22" rx="2" fill="none" stroke="#2E2E2E"/><text x="151" y="139" fill="#C0C0C0" text-anchor="middle">1A</text>
+    <rect x="172" y="124" width="44" height="22" rx="2" fill="none" stroke="#2E2E2E"/><text x="194" y="139" fill="#C0C0C0" text-anchor="middle">TODO</text>
+  </g>
+  <!-- chart card -->
+  <rect x="16" y="158" width="248" height="170" rx="4" fill="#111111" stroke="#1F1F1F"/>
+  <text x="32" y="182" font-size="8" font-weight="500" letter-spacing="1.4" fill="#8A8A8A">PRESS DE BANCA · 1RM EST</text>
+  <text x="248" y="182" font-size="9" font-weight="500" fill="#00FFFF" text-anchor="end">+15.6%</text>
+  <text x="32" y="210" font-size="22" font-weight="800" fill="#FFFFFF">148.0 <tspan font-size="10" fill="#8A8A8A">KG</tspan></text>
+  <line x1="32" y1="228" x2="248" y2="228" stroke="#1F1F1F"/>
+  <line x1="32" y1="258" x2="248" y2="258" stroke="#1F1F1F"/>
+  <line x1="32" y1="288" x2="248" y2="288" stroke="#1F1F1F"/>
+  <polyline points="32,300 56,294 80,288 104,290 128,282 152,276 176,270 200,262 224,250 248,242" fill="none" stroke="#00FFFF" stroke-width="1.5"/>
+  <circle cx="248" cy="242" r="3" fill="#00FFFF"/>
+  <text x="32" y="320" font-size="7" fill="#5A5A5A">S01</text>
+  <text x="140" y="320" font-size="7" fill="#5A5A5A" text-anchor="middle">S06</text>
+  <text x="248" y="320" font-size="7" fill="#5A5A5A" text-anchor="end">S12</text>
+  <!-- tiles -->
+  <rect x="16" y="340" width="120" height="56" rx="4" fill="#111111" stroke="#1F1F1F"/>
+  <text x="30" y="362" font-size="8" letter-spacing="1.4" fill="#5A5A5A">TONELAJE · S</text>
+  <text x="30" y="384" font-size="18" font-weight="800" fill="#FFFFFF">24.8<tspan font-size="9" fill="#8A8A8A">T</tspan></text>
+  <rect x="144" y="340" width="120" height="56" rx="4" fill="#111111" stroke="#1F1F1F"/>
+  <text x="158" y="362" font-size="8" letter-spacing="1.4" fill="#5A5A5A">ADHERENCIA</text>
+  <text x="158" y="384" font-size="18" font-weight="800" fill="#FFFFFF">92<tspan font-size="9" fill="#8A8A8A">%</tspan></text>
+  <!-- PR feed -->
+  <text x="20" y="424" font-size="9" font-weight="600" letter-spacing="2.2" fill="#8A8A8A">RÉCORDS · PERSONALES</text>
+  <rect x="16" y="434" width="248" height="86" rx="4" fill="#111111" stroke="#1F1F1F"/>
+  <path d="M40 458 l3 6 7 1 -5 5 1 7 -6 -3 -6 3 1 -7 -5 -5 7 -1z" fill="none" stroke="#98FF98" stroke-width="1.4"/>
+  <text x="62" y="456" font-size="10" font-weight="700" letter-spacing="1" fill="#FFFFFF">DEADLIFT</text>
+  <text x="62" y="470" font-size="8" fill="#5A5A5A">MAR · MAY 12</text>
+  <text x="248" y="458" font-size="11" font-weight="800" fill="#FFFFFF" text-anchor="end">202.5 KG</text>
+  <text x="248" y="472" font-size="8" fill="#98FF98" text-anchor="end">+5.0 KG</text>
+  <line x1="16" y1="486" x2="264" y2="486" stroke="#1F1F1F"/>
+  <path d="M40 504 l3 6 7 1 -5 5 1 7 -6 -3 -6 3 1 -7 -5 -5 7 -1z" fill="none" stroke="#98FF98" stroke-width="1.4"/>
+  <text x="62" y="502" font-size="10" font-weight="700" letter-spacing="1" fill="#FFFFFF">SENTADILLA</text>
+  <text x="62" y="516" font-size="8" fill="#5A5A5A">LUN · MAY 04</text>
+  <text x="248" y="504" font-size="11" font-weight="800" fill="#FFFFFF" text-anchor="end">170.0 KG</text>
+  <text x="248" y="518" font-size="8" fill="#98FF98" text-anchor="end">+2.5 KG</text>
+  <!-- tab bar -->
+  <line x1="0" y1="528" x2="280" y2="528" stroke="#1F1F1F"/>
+  <g font-size="7" font-weight="700" letter-spacing="1" text-anchor="middle">
+    <text x="36" y="556" fill="#5A5A5A">HOY</text>
+    <text x="92" y="556" fill="#5A5A5A">PLAN</text>
+    <text x="148" y="556" fill="#5A5A5A">ENTRENAR</text>
+    <text x="204" y="556" fill="#00FFFF">PROGRESO</text>
+    <text x="252" y="556" fill="#5A5A5A">TÚ</text>
+  </g>
+</svg>

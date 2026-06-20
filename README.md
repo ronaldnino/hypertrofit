@@ -6,11 +6,30 @@
 
 React Native puro · TypeScript · estética plana técnica (carbón/papel + señal cian/mint)
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-00B8D4.svg)](LICENSE)
+![React Native](https://img.shields.io/badge/React_Native-0.86-0A0A0A?logo=react&logoColor=00FFFF)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)
+![Platforms](https://img.shields.io/badge/plataforma-iOS%20%7C%20Android-8A8A8A)
+
 </div>
 
 ---
 
 Hypertrofit es una app de fitness construida a partir del *Hypertrofit Design System* de Claude. Estética **plana y técnica**: sin sombras ni gradientes, radios ≤ 4 px, tipografía geométrica en mayúsculas con tracking ancho, y una señal **cian/mint** sobre lienzo carbón (oscuro) o papel (claro).
+
+## 📱 Capturas
+
+<table>
+  <tr>
+    <td align="center"><img src="docs/screenshots/hoy.svg" width="200"/><br/><sub><b>Hoy</b> · atleta (oscuro)</sub></td>
+    <td align="center"><img src="docs/screenshots/entrenar.svg" width="200"/><br/><sub><b>Entrenar</b> · logger + descanso</sub></td>
+    <td align="center"><img src="docs/screenshots/progreso.svg" width="200"/><br/><sub><b>Progreso</b> · e1RM + PRs</sub></td>
+    <td align="center"><img src="docs/screenshots/tu-claro.svg" width="200"/><br/><sub><b>Tú</b> · entrenador (claro)</sub></td>
+  </tr>
+</table>
+
+> [!NOTE]
+> Las imágenes son **mockups de referencia** (SVG) en la estética real de la app, no capturas del dispositivo. Reemplázalas por capturas reales en `docs/screenshots/` (ej. `xcrun simctl io booted screenshot` en iOS o `adb exec-out screencap -p` en Android) manteniendo los nombres de archivo.
 
 ## ✨ Características
 
@@ -93,6 +112,10 @@ Verificación de tipos: `npx tsc --noEmit`.
 - **Switcher de rol (DEV):** botón flotante `DEV · {ROL}` abajo a la derecha; abre un menú para alternar entre atleta / entrenador / gym y revisar las vistas. Es **temporal** (`src/components/DevRoleSwitcher.tsx`) — se reemplazará por el login/roles reales antes de producción.
 - **Tema:** el toggle sol/luna vive en la barra de marca; arranca siguiendo el esquema del sistema.
 - **Datos:** todo el contenido es de demostración, en memoria. No hay backend todavía.
+
+## 📄 Licencia
+
+Distribuido bajo la licencia **MIT**. Consulta [`LICENSE`](LICENSE) para más información.
 
 ---
 
