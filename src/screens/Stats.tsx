@@ -17,24 +17,25 @@ import {
 } from '../components/ui';
 import {Icon} from '../components/Icon';
 import {DashHeader, FeedSection, MiniBars} from '../components/Dashboard';
+import {ExerciseIcon} from '../components/ExerciseIcon';
 import {useRole} from '../RoleContext';
+import {useWorkouts} from '../WorkoutContext';
+import {
+  e1rmSeries,
+  bestPRs,
+  avgRpe,
+  totalSetsAll,
+  exercisesByFrequency,
+  sessionVolume,
+} from '../workout';
 import {STATS_DASH} from '../dashboards';
 
-const PTS = [128, 130, 132, 131, 134, 136, 138, 140, 139, 142, 145, 148];
-const RANGES = ['4S', '12S', '6M', '1A', 'TODO'];
-
-const TILES: {label: string; value: string; unit: string; delta: string; deltaColor: AccentKey}[] = [
-  {label: 'TONELAJE · S', value: '24.8', unit: 'T', delta: '+1.2T vs S02', deltaColor: 'mint'},
-  {label: 'ADHERENCIA', value: '92', unit: '%', delta: '11 DE 12 SESIONES', deltaColor: 'mint'},
-  {label: 'RPE PROM', value: '8.1', unit: '', delta: 'EN OBJETIVO', deltaColor: 'fg2'},
-  {label: 'SUEÑO · PROM', value: '7.4', unit: 'H', delta: '−0.3H vs ANT', deltaColor: 'warn'},
-];
-
-const PRS = [
-  {lift: 'Deadlift', val: '202.5 KG', delta: '+5.0 KG', date: 'MAR · MAY 12'},
-  {lift: 'Sentadilla Trasera', val: '170.0 KG', delta: '+2.5 KG', date: 'LUN · MAY 04'},
-  {lift: 'Press de Banca', val: '142.5 KG', delta: '+2.5 KG', date: 'VIE · ABR 24'},
-];
+const DOW = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];
+const MON = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
+const fmtDate = (ms: number) => {
+  const d = new Date(ms);
+  return `${DOW[d.getDay()]} · ${MON[d.getMonth()]} ${String(d.getDate()).padStart(2, '0')}`;
+};
 
 // Despacha la vista de Progreso según el tipo de usuario.
 export function Stats() {
@@ -85,20 +86,78 @@ export function Stats() {
 function AthleteStats() {
   const {scheme, t} = useTheme();
   const styles = SS[scheme];
-  const [range, setRange] = useState('12W');
   const {width} = useWindowDimensions();
+  const {sessions} = useWorkouts();
 
-  // Chart geometry (viewBox space)
+  // Ejercicios disponibles (por frecuencia) y el seleccionado para el gráfico.
+  const freq = exercisesByFrequency(sessions);
+  const [lift, setLift] = useState<string | undefined>(undefined);
+  const selected = lift && freq.some(f => f.name === lift) ? lift : freq[0]?.name;
+  const series = selected ? e1rmSeries(sessions, selected) : [];
+  const pts = series.map(p => p.value);
+
+  const prs = bestPRs(sessions).slice(0, 6);
+  const sets = totalSetsAll(sessions);
+  const rpe = avgRpe(sessions);
+  const lastVol = sessions.length ? sessionVolume(sessions[0]) : 0; // [0] = más reciente
+  const prevVol = sessions.length > 1 ? sessionVolume(sessions[1]) : 0;
+  const volDelta = lastVol - prevVol;
+
+  // Estado vacío
+  if (sessions.length === 0) {
+    return (
+      <Screen>
+        <Pad y={6}>
+          <Eyebrow>ENTRENAMIENTO · INTELIGENCIA</Eyebrow>
+          <H1 style={{marginTop: 8}}>PROGRESO</H1>
+        </Pad>
+        <Pad y={24}>
+          <Card style={styles.empty}>
+            {Icon.stats({color: t.fg3, size: 28})}
+            <Text style={styles.emptyTitle} allowFontScaling={false}>
+              SIN ENTRENAMIENTOS AÚN
+            </Text>
+            <Meta color={t.fg3} style={{textAlign: 'center', marginTop: 8}}>
+              Inicia un entrenamiento desde Plan o Hoy y aquí verás tu 1RM
+              estimado, tonelaje, RPE y récords.
+            </Meta>
+          </Card>
+        </Pad>
+      </Screen>
+    );
+  }
+
+  // Geometría del gráfico (espacio viewBox)
   const W = 350;
   const H = 140;
   const pad = 16;
-  const max = Math.max(...PTS);
-  const min = Math.min(...PTS);
-  const x = (i: number) => pad + (i * (W - pad * 2)) / (PTS.length - 1);
-  const y = (v: number) =>
-    pad + (H - pad * 2) * (1 - (v - (min - 4)) / (max + 4 - (min - 4)));
-  const d = PTS.map((p, i) => `${i === 0 ? 'M' : 'L'} ${x(i)} ${y(p)}`).join(' ');
+  const max = Math.max(...pts);
+  const min = Math.min(...pts);
+  const span = Math.max(1, max + 4 - (min - 4));
+  const x = (i: number) =>
+    pts.length > 1 ? pad + (i * (W - pad * 2)) / (pts.length - 1) : W / 2;
+  const y = (v: number) => pad + (H - pad * 2) * (1 - (v - (min - 4)) / span);
+  const d = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${x(i)} ${y(p)}`).join(' ');
   const chartW = width - 40 - 36; // screen padding + card padding
+  const latest = pts[pts.length - 1];
+  const first = pts[0];
+  const pct = first > 0 ? ((latest - first) / first) * 100 : 0;
+
+  const tiles = [
+    {
+      label: 'TONELAJE · ÚLT',
+      value: (lastVol / 1000).toFixed(1),
+      unit: 'T',
+      delta:
+        sessions.length > 1
+          ? `${volDelta >= 0 ? '+' : '−'}${Math.abs(volDelta / 1000).toFixed(1)}T vs ANT`
+          : '1ª SESIÓN',
+      deltaColor: (volDelta >= 0 ? 'mint' : 'warn') as AccentKey,
+    },
+    {label: 'SESIONES', value: String(sessions.length), unit: '', delta: 'REGISTRADAS', deltaColor: 'fg2' as AccentKey},
+    {label: 'SERIES', value: String(sets), unit: '', delta: 'TOTAL', deltaColor: 'fg2' as AccentKey},
+    {label: 'RPE PROM', value: rpe.toFixed(1), unit: '', delta: 'PROMEDIO', deltaColor: 'fg2' as AccentKey},
+  ];
 
   return (
     <Screen>
@@ -107,72 +166,60 @@ function AthleteStats() {
         <H1 style={{marginTop: 8}}>PROGRESO</H1>
       </Pad>
 
-      {/* Range chips */}
+      {/* Selector de ejercicio */}
       <Pad y={16}>
         <View style={styles.chips}>
-          {RANGES.map(r => (
-            <Chip key={r} active={range === r} onPress={() => setRange(r)}>
-              {r}
+          {freq.slice(0, 5).map(f => (
+            <Chip key={f.name} active={selected === f.name} onPress={() => setLift(f.name)}>
+              {f.name}
             </Chip>
           ))}
         </View>
       </Pad>
 
-      {/* Hero chart */}
+      {/* Gráfico principal · 1RM estimado del ejercicio */}
       <Pad y={4}>
         <Card style={{padding: 18}}>
           <View style={styles.chartHead}>
-            <Eyebrow color={t.fg2}>PRESS DE BANCA · 1RM EST</Eyebrow>
-            <Meta color={t.cyan}>+15.6%</Meta>
+            <Eyebrow color={t.fg2}>{(selected ?? '').toUpperCase()} · 1RM EST</Eyebrow>
+            <Meta color={pct >= 0 ? t.mint : t.warn}>
+              {pct >= 0 ? '+' : ''}
+              {pct.toFixed(1)}%
+            </Meta>
           </View>
           <View style={styles.chartValue}>
-            <Num size={44}>148.0</Num>
+            <Num size={44}>{latest}</Num>
             <Meta>KG</Meta>
           </View>
-          <Svg
-            width={chartW}
-            height={140}
-            viewBox={`0 0 ${W} ${H}`}
-            style={{marginTop: 10}}>
-            {[0, 1, 2, 3].map(i => {
-              const gy = pad + ((H - pad * 2) * i) / 3;
-              return (
-                <Line
-                  key={i}
-                  x1={pad}
-                  x2={W - pad}
-                  y1={gy}
-                  y2={gy}
-                  stroke={t.line}
-                  strokeWidth={1}
-                />
-              );
-            })}
-            <Path d={d} fill="none" stroke={t.cyan} strokeWidth={1.5} />
-            <Line
-              x1={x(PTS.length - 1)}
-              x2={x(PTS.length - 1)}
-              y1={pad}
-              y2={H - pad}
-              stroke={t.cyan}
-              strokeDasharray="2 3"
-              strokeWidth={0.8}
-              opacity={0.5}
-            />
-            <Circle cx={x(PTS.length - 1)} cy={y(PTS[PTS.length - 1])} r={3} fill={t.cyan} />
-          </Svg>
-          <View style={styles.chartAxis}>
-            <Meta color={t.fg3}>S01</Meta>
-            <Meta color={t.fg3}>S06</Meta>
-            <Meta color={t.fg3}>S12</Meta>
-          </View>
+          {pts.length > 1 ? (
+            <Svg width={chartW} height={140} viewBox={`0 0 ${W} ${H}`} style={{marginTop: 10}}>
+              {[0, 1, 2, 3].map(i => {
+                const gy = pad + ((H - pad * 2) * i) / 3;
+                return (
+                  <Line key={i} x1={pad} x2={W - pad} y1={gy} y2={gy} stroke={t.line} strokeWidth={1} />
+                );
+              })}
+              <Path d={d} fill="none" stroke={t.cyan} strokeWidth={1.5} />
+              <Circle cx={x(pts.length - 1)} cy={y(latest)} r={3} fill={t.cyan} />
+            </Svg>
+          ) : (
+            <Meta color={t.fg3} style={{marginTop: 14}}>
+              Registra otra sesión de este ejercicio para ver la tendencia.
+            </Meta>
+          )}
+          {pts.length > 1 ? (
+            <View style={styles.chartAxis}>
+              <Meta color={t.fg3}>{fmtDate(series[0].date)}</Meta>
+              <Meta color={t.fg3}>{fmtDate(series[series.length - 1].date)}</Meta>
+            </View>
+          ) : null}
         </Card>
       </Pad>
 
-      {/* Tile grid */}
+      {/* Tiles */}
       <Pad y={16}>
         <View style={styles.grid}>
-          {TILES.map(tile => (
+          {tiles.map(tile => (
             <Card key={tile.label} style={styles.tile}>
               <Eyebrow color={t.fg3}>{tile.label}</Eyebrow>
               <Num size={28} style={{marginTop: 8}}>
@@ -187,27 +234,29 @@ function AthleteStats() {
         </View>
       </Pad>
 
-      {/* PR feed */}
+      {/* Récords personales (mejor 1RM estimado por ejercicio) */}
       <Pad y={20}>
         <Eyebrow style={{marginBottom: 12}}>RÉCORDS · PERSONALES</Eyebrow>
         <Card style={{padding: 0}}>
-          {PRS.map((pr, i) => (
+          {prs.map((pr, i) => (
             <View
-              key={pr.lift}
-              style={[styles.prRow, i < PRS.length - 1 ? styles.prBorder : null]}>
-              <View style={{marginRight: 14}}>{Icon.star({color: t.mint, size: 16})}</View>
+              key={pr.name}
+              style={[styles.prRow, i < prs.length - 1 ? styles.prBorder : null]}>
+              <View style={[styles.prThumb, {borderColor: t.lineStrong}]}>
+                <ExerciseIcon pattern={pr.pattern} color={t.mint} size={18} />
+              </View>
               <View style={{flex: 1}}>
                 <Text style={styles.prLift} allowFontScaling={false}>
-                  {pr.lift}
+                  {pr.name}
                 </Text>
                 <Meta color={t.fg3} style={{marginTop: 4}}>
-                  {pr.date}
+                  1RM EST · {fmtDate(pr.date)}
                 </Meta>
               </View>
               <View style={{alignItems: 'flex-end'}}>
-                <Num size={18}>{pr.val}</Num>
+                <Num size={18}>{pr.value}</Num>
                 <Meta color={t.mint} style={{marginTop: 4}}>
-                  {pr.delta}
+                  KG
                 </Meta>
               </View>
             </View>
@@ -222,7 +271,28 @@ const makeStyles = (t: Palette) =>
   StyleSheet.create({
     chips: {
       flexDirection: 'row',
+      flexWrap: 'wrap',
       gap: 6,
+    },
+    empty: {
+      padding: 28,
+      alignItems: 'center',
+    },
+    emptyTitle: {
+      color: t.fg,
+      fontSize: 14,
+      fontWeight: '700',
+      letterSpacing: 1.6,
+      marginTop: 14,
+    },
+    prThumb: {
+      width: 30,
+      height: 30,
+      borderWidth: 1,
+      borderRadius: 2,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 14,
     },
     chartHead: {
       flexDirection: 'row',

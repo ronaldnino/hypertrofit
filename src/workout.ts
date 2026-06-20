@@ -70,3 +70,67 @@ export const lastLoadForExercise = (
   }
   return undefined;
 };
+
+// ───────── Selectores para la pantalla de Progreso ─────────
+
+// Nombres de ejercicio que aparecen, ordenados por frecuencia (sesiones) desc.
+export const exercisesByFrequency = (
+  sessions: CompletedSession[],
+): {name: string; count: number; pattern: Pattern}[] => {
+  const m = new Map<string, {count: number; pattern: Pattern}>();
+  sessions.forEach(s =>
+    s.entries.forEach(e => {
+      const cur = m.get(e.name);
+      if (cur) cur.count += 1;
+      else m.set(e.name, {count: 1, pattern: e.pattern});
+    }),
+  );
+  return [...m.entries()]
+    .map(([name, v]) => ({name, ...v}))
+    .sort((a, b) => b.count - a.count);
+};
+
+// Serie temporal de 1RM estimado de un ejercicio (cronológica ascendente).
+export const e1rmSeries = (
+  sessions: CompletedSession[],
+  name: string,
+): {date: number; value: number}[] =>
+  [...sessions]
+    .sort((a, b) => a.date - b.date)
+    .map(s => ({date: s.date, value: bestE1rmForExercise(s, name)}))
+    .filter(p => p.value > 0);
+
+export type PRRow = {name: string; value: number; date: number; pattern: Pattern};
+
+// Mejor 1RM estimado por ejercicio (récords personales), ordenado desc.
+export const bestPRs = (sessions: CompletedSession[]): PRRow[] => {
+  const best: Record<string, PRRow> = {};
+  sessions.forEach(s =>
+    s.entries.forEach(e => {
+      const v = e.sets.reduce((mx, st) => Math.max(mx, e1rm(st.load, st.reps)), 0);
+      if (v > 0 && (!best[e.name] || v > best[e.name].value)) {
+        best[e.name] = {name: e.name, value: v, date: s.date, pattern: e.pattern};
+      }
+    }),
+  );
+  return Object.values(best).sort((a, b) => b.value - a.value);
+};
+
+// RPE promedio de todas las series registradas.
+export const avgRpe = (sessions: CompletedSession[]): number => {
+  let sum = 0;
+  let n = 0;
+  sessions.forEach(s =>
+    s.entries.forEach(e =>
+      e.sets.forEach(st => {
+        sum += st.rpe;
+        n += 1;
+      }),
+    ),
+  );
+  return n ? sum / n : 0;
+};
+
+// Series totales registradas en todas las sesiones.
+export const totalSetsAll = (sessions: CompletedSession[]): number =>
+  sessions.reduce((n, s) => n + sessionSets(s), 0);
