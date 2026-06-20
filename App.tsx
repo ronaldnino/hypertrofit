@@ -68,7 +68,7 @@ function Shell() {
           </View>
           <View style={styles.body}>
             {tab === 'today' && <Today onStart={openSession} />}
-            {tab === 'plan' && <Plan onOpenSession={openSession} />}
+            {tab === 'plan' && <Plan />}
             {tab === 'session' && <Train onStart={openSession} />}
             {tab === 'stats' && <Stats />}
             {tab === 'you' && <You />}
