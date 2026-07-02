@@ -14,22 +14,16 @@ import {
   H2,
   Meta,
   Num,
-  Unit,
   Card,
   Button,
   Hairline,
 } from '../components/ui';
 import {DashHeader, KpiRow, FeedSection} from '../components/Dashboard';
 import {useRole} from '../RoleContext';
+import {useRoutines} from '../RoutinesContext';
+import {countExercises, countSets} from '../routines';
+import {flattenExercises} from '../workout';
 import {TRAIN_DASH, FeedItem} from '../dashboards';
-
-const PREP = [
-  {name: 'Press de Banca', scheme: '3 × 8 · RPE 8'},
-  {name: 'Press Inclinado', scheme: '3 × 10'},
-  {name: 'Press Militar', scheme: '4 × 8'},
-  {name: 'Fondos', scheme: '3 × 12'},
-  {name: 'Extensión Tríceps', scheme: '3 × 15'},
-];
 
 export function Train({onStart}: {onStart: () => void}) {
   const {role} = useRole();
@@ -57,57 +51,73 @@ export function Train({onStart}: {onStart: () => void}) {
 function AthleteTrain({onStart}: {onStart: () => void}) {
   const {scheme, t} = useTheme();
   const styles = SS[scheme];
+  const {todays} = useRoutines();
+  const routine = todays();
+  const accent = routine ? (routine.kind === 'upper' ? t.cyan : t.mint) : t.cyan;
+  const exercises = routine ? flattenExercises(routine) : [];
+  const minutes = routine ? Math.round(countSets(routine) * 3.2) : 0;
+
   return (
     <Screen>
       <Pad y={6}>
-        <Eyebrow>VIERNES · WEEK 03 · PHASE 02</Eyebrow>
+        <Eyebrow>{routine ? routine.short : 'DESCANSO'} · MESOCICLO · HIPERTROFIA</Eyebrow>
         <H1 style={{marginTop: 8}}>ENTRENAR</H1>
       </Pad>
 
       <Pad y={18}>
         <Card style={{padding: 22}}>
-          <Eyebrow color={t.cyan}>SESIÓN DE HOY</Eyebrow>
-          <H2 style={{marginTop: 10}}>Día de Empuje · A</H2>
-          <Meta style={{marginTop: 8}}>5 EJERCICIOS · 64 MIN</Meta>
+          <Eyebrow color={accent}>{routine ? 'SESIÓN DE HOY' : 'DÍA DE DESCANSO'}</Eyebrow>
+          <H2 style={{marginTop: 10}}>{routine ? routine.title : 'Recuperación'}</H2>
+          <Meta style={{marginTop: 8}}>
+            {routine
+              ? `${countExercises(routine)} EJERCICIOS · ~${minutes} MIN`
+              : 'Sin sesión programada'}
+          </Meta>
           <Hairline style={{marginVertical: 18}} />
           <View style={styles.foot}>
             <View>
-              <Eyebrow color={t.fg3}>CARGA OBJETIVO</Eyebrow>
+              <Eyebrow color={t.fg3}>SERIES</Eyebrow>
               <Num size={28} style={{marginTop: 6}}>
-                4,260 <Unit>KG</Unit>
+                {routine ? countSets(routine) : 0}
               </Num>
             </View>
-            <Button kind="primary" onPress={onStart}>
-              Iniciar Sesión
+            <Button kind={routine ? (routine.kind === 'upper' ? 'primary' : 'mint') : 'ghost'} onPress={() => onStart()}>
+              {routine ? 'Iniciar Sesión' : 'Entrenar igual'}
             </Button>
           </View>
         </Card>
       </Pad>
 
-      <Pad y={6}>
-        <Eyebrow style={{marginBottom: 12}}>PLAN · DE HOY</Eyebrow>
-        <Card style={{padding: 0}}>
-          {PREP.map((e, i) => (
-            <View
-              key={e.name}
-              style={[styles.exRow, i < PREP.length - 1 ? styles.rowBorder : null]}>
-              <View style={styles.exNum}>
-                <Eyebrow color={t.fg3}>{String(i + 1).padStart(2, '0')}</Eyebrow>
+      {routine ? (
+        <Pad y={6}>
+          <Eyebrow style={{marginBottom: 12}}>PLAN · DE HOY</Eyebrow>
+          <Card style={{padding: 0}}>
+            {exercises.map((e, i) => (
+              <View
+                key={e.name}
+                style={[styles.exRow, i < exercises.length - 1 ? styles.rowBorder : null]}>
+                <View style={styles.exNum}>
+                  <Eyebrow color={t.fg3}>{String(i + 1).padStart(2, '0')}</Eyebrow>
+                </View>
+                <View style={{flex: 1}}>
+                  <H2 style={{fontSize: 15}}>{e.name}</H2>
+                  <Meta color={t.fg3} style={{marginTop: 4}}>
+                    {e.sets} × {e.reps}
+                    {e.rpe ? ` · RPE ${e.rpe}` : ''}
+                  </Meta>
+                </View>
               </View>
-              <View style={{flex: 1}}>
-                <H2 style={{fontSize: 15}}>{e.name}</H2>
-                <Meta color={t.fg3} style={{marginTop: 4}}>
-                  {e.scheme}
-                </Meta>
-              </View>
-            </View>
-          ))}
-        </Card>
-      </Pad>
+            ))}
+          </Card>
+        </Pad>
+      ) : null}
 
       <Pad y={20}>
-        <Button kind="primary" full onPress={onStart}>
-          Iniciar Sesión
+        <Button
+          kind={routine ? (routine.kind === 'upper' ? 'primary' : 'mint') : 'ghost'}
+          full
+          onPress={() => onStart()}>
+          {routine ? 'Iniciar Sesión' : 'Entrenar igual'}
         </Button>
       </Pad>
     </Screen>
