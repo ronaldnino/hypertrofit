@@ -58,9 +58,11 @@ export function Today({onStart}: {onStart: () => void}) {
   const {role} = useRole();
   const dash = TODAY_DASH[role];
   if (dash) {
+    const now = new Date();
+    const eyebrow = `${DOW_FULL[now.getDay()].slice(0, 3)} · ${MON[now.getMonth()]} ${now.getDate()} · ${dash.eyebrow}`;
     return (
       <Screen>
-        <DashHeader eyebrow={dash.eyebrow} title={dash.title} />
+        <DashHeader eyebrow={eyebrow} title={dash.title} />
         <KpiRow kpis={dash.kpis} />
         {dash.sections.map(s => (
           <FeedSection key={s.title} section={s} />
@@ -139,11 +141,11 @@ function AthleteToday({onStart}: {onStart: () => void}) {
             {routine ? (
               <Button
                 kind={trainedToday ? 'secondary' : routine.kind === 'upper' ? 'primary' : 'mint'}
-                onPress={onStart}>
+                onPress={() => onStart()}>
                 {trainedToday ? 'Entrenar otra vez' : 'Iniciar entrenamiento'}
               </Button>
             ) : (
-              <Button kind="ghost" onPress={onStart}>
+              <Button kind="ghost" onPress={() => onStart()}>
                 Entrenar igual
               </Button>
             )}
