@@ -357,7 +357,7 @@ export function Session({
               ← Anterior
             </Button>
             <Button kind="ghost" onPress={() => setAdding(true)} style={styles.navBtn}>
-              + Añadir ejercicio
+              + Ejercicio
             </Button>
           </View>
         </Pad>
@@ -436,7 +436,7 @@ function SetHeaderRow() {
   const styles = SS[scheme];
   return (
     <View style={[styles.tRow, styles.tBorder]}>
-      <Text style={[styles.th, styles.tColN]} allowFontScaling={false}>
+      <Text style={[styles.th, styles.tColN]} allowFontScaling={false} numberOfLines={1}>
         Nº
       </Text>
       <Text style={[styles.th, styles.tCol]} allowFontScaling={false}>
@@ -485,7 +485,7 @@ function SetRow({
         styles.tBorder,
         {backgroundColor: active ? t.activeRow : 'transparent'},
       ]}>
-      <Text style={[styles.tdN, styles.tColN]} allowFontScaling={false}>
+      <Text style={[styles.tdN, styles.tColN]} allowFontScaling={false} numberOfLines={1}>
         {String(n).padStart(2, '0')}
       </Text>
       <Text style={[styles.td, styles.tCol, {color: txt, fontWeight: fw}]} allowFontScaling={false}>
@@ -682,6 +682,7 @@ const makeStyles = (t: Palette) =>
     },
     tColN: {
       width: 40,
+      paddingHorizontal: 0,
       textAlign: 'center',
       flexGrow: 0,
       flexShrink: 0,

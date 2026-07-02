@@ -28,7 +28,7 @@ export type DashboardData = {
 // ───────────────────────── HOY ─────────────────────────
 export const TODAY_DASH: Partial<Record<Role, DashboardData>> = {
   coach: {
-    eyebrow: 'VIERNES · JUN 19 · PANEL',
+    eyebrow: 'PANEL',
     title: 'HOY',
     kpis: [
       {label: 'ATLETAS HOY', val: '12'},
@@ -64,7 +64,7 @@ export const TODAY_DASH: Partial<Record<Role, DashboardData>> = {
     ],
   },
   gym: {
-    eyebrow: 'VIERNES · JUN 19 · CENTRO',
+    eyebrow: 'CENTRO',
     title: 'HOY',
     kpis: [
       {label: 'SESIONES ACTIVAS', val: '18'},
