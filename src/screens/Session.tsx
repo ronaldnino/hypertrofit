@@ -12,6 +12,7 @@ import {
   ScrollView,
   Vibration,
 } from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {Palette, DARK, LIGHT} from '../theme';
 import {useTheme} from '../ThemeContext';
 import {
@@ -53,6 +54,7 @@ export function Session({
   onComplete: (s: CompletedSession) => void;
 }) {
   const {scheme, t} = useTheme();
+  const insets = useSafeAreaInsets();
   const styles = SS[scheme];
   const {sessions} = useWorkouts();
   const {settings} = useSettings();
@@ -377,7 +379,9 @@ export function Session({
         onRequestClose={() => setAdding(false)}
         statusBarTranslucent>
         <Pressable style={styles.backdrop} onPress={() => setAdding(false)}>
-          <Pressable style={styles.sheet} onPress={() => {}}>
+          <Pressable
+            style={[styles.sheet, {paddingBottom: 28 + insets.bottom}]}
+            onPress={() => {}}>
             <View style={styles.grabber} />
             <Eyebrow color={accent}>AÑADIR · EJERCICIO</Eyebrow>
             <ScrollView

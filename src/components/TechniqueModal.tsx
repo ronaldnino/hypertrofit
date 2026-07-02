@@ -15,6 +15,7 @@ import {
   ActivityIndicator,
   useWindowDimensions,
 } from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import YoutubePlayer from 'react-native-youtube-iframe';
 import {Palette, DARK, LIGHT, R} from '../theme';
 import {useTheme} from '../ThemeContext';
@@ -63,6 +64,7 @@ export function TechniqueModal({
 }) {
   const {scheme, t} = useTheme();
   const {width: winW} = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const styles = SS[scheme];
   const open = !!exercise;
   const id = exercise ? youtubeId(exercise) : undefined;
@@ -91,7 +93,9 @@ export function TechniqueModal({
       statusBarTranslucent>
       <Pressable style={styles.backdrop} onPress={onClose}>
         {/* El contenido captura sus propios toques para no cerrar el modal */}
-        <Pressable style={styles.sheet} onPress={() => {}}>
+        <Pressable
+          style={[styles.sheet, {paddingBottom: 36 + insets.bottom}]}
+          onPress={() => {}}>
           {exercise ? (
             <>
               <View style={styles.grabber} />

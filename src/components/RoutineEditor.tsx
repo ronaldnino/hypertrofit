@@ -12,6 +12,7 @@ import {
   StyleSheet,
   useWindowDimensions,
 } from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {Palette, DARK, LIGHT, R} from '../theme';
 import {useTheme} from '../ThemeContext';
 import {Button, Eyebrow, Stepper} from './ui';
@@ -29,6 +30,7 @@ export function RoutineEditor({
 }) {
   const {scheme, t} = useTheme();
   const {height} = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const styles = SS[scheme];
   const {byId, updateExercise, addExercise, removeExercise, reset} = useRoutines();
   const routine = routineId ? byId(routineId) : undefined;
@@ -46,7 +48,10 @@ export function RoutineEditor({
       statusBarTranslucent>
       <Pressable style={styles.backdrop} onPress={onClose}>
         <Pressable
-          style={[styles.sheet, {maxHeight: height * 0.9}]}
+          style={[
+            styles.sheet,
+            {maxHeight: height * 0.9, paddingBottom: 28 + insets.bottom},
+          ]}
           onPress={() => {}}>
           {routine ? (
             <>

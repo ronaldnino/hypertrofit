@@ -3,6 +3,7 @@
 // TODO: quitar antes de producción (se reemplaza por login/roles reales).
 import React, {useState} from 'react';
 import {View, Text, Pressable, Modal, StyleSheet} from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {Palette, DARK, LIGHT, R} from '../theme';
 import {useTheme} from '../ThemeContext';
 import {useRole} from '../RoleContext';
@@ -12,6 +13,7 @@ import {Eyebrow, Meta} from './ui';
 export function DevRoleSwitcher() {
   const {role, setRole} = useRole();
   const {scheme, t} = useTheme();
+  const insets = useSafeAreaInsets();
   const styles = SS[scheme];
   const [open, setOpen] = useState(false);
   const meta = ROLE_META[role];
@@ -45,7 +47,9 @@ export function DevRoleSwitcher() {
         animationType="fade"
         onRequestClose={() => setOpen(false)}>
         <Pressable style={styles.backdrop} onPress={() => setOpen(false)}>
-          <Pressable style={styles.sheet} onPress={() => {}}>
+          <Pressable
+            style={[styles.sheet, {paddingBottom: 36 + insets.bottom}]}
+            onPress={() => {}}>
             <View style={styles.sheetHead}>
               <Eyebrow color={t.fg3}>DEV · TIPO DE USUARIO</Eyebrow>
               <Meta color={t.fg3}>SWITCH DE PERFIL</Meta>
